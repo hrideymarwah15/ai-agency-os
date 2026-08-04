@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Unsubscribe — AI Agency OS{% endblock %}
+{% block content %}
+<div class="card unsubscribe-card">
+  {% if state == "success" %}
+  <h1>You have been unsubscribed</h1>
+  <p>
+    You won't receive further messages from {{ agency_name }}. If this was a
+    mistake, contact {{ contact_email }} to re-subscribe.
+  </p>
+  {% else %}
+  <h1>Invalid or expired link</h1>
+  <p>
+    This unsubscribe link is invalid or has expired. Use the link from your
+    latest message.
+  </p>
+  {% endif %}
+</div>
+{% endblock %}
