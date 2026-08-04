@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +22,7 @@ class AuditService:
         entity_type: str,
         entity_id: str | None,
         payload: dict[str, Any],
-        correlation_id: str,
+        correlation_id: str | None = None,
     ) -> None:
         """Insert one audit row (INSERT only — immutability enforced at the DB too)."""
         session.add(
@@ -31,9 +32,25 @@ class AuditService:
                 entity_type=entity_type,
                 entity_id=entity_id,
                 payload=payload,
-                correlation_id=correlation_id,
+                correlation_id=correlation_id or str(uuid4()),
             )
         )
+
+    @staticmethod
+    async def query(
+        session: AsyncSession,
+        *,
+        correlation_id: str,
+        limit: int = 100,
+    ) -> Sequence[AuditLog]:
+        """Return one correlation trail, newest first (lead/proposal/contract traces)."""
+        result = await session.execute(
+            select(AuditLog)
+            .where(AuditLog.correlation_id == correlation_id)
+            .order_by(AuditLog.created_at.desc())
+            .limit(limit)
+        )
+        return result.scalars().all()
 
     @staticmethod
     async def list_recent(session: AsyncSession, limit: int = 50) -> Sequence[AuditLog]:

@@ -5,6 +5,21 @@
   <h1>Audit Log</h1>
   <p>Every action recorded by the agency, newest first.</p>
 </header>
+<form class="filter-row" method="get" action="/audit" aria-label="Filter audit log">
+  <input
+    type="text"
+    id="correlation-filter"
+    name="correlation_id"
+    class="input input--filter"
+    placeholder="Correlation ID"
+    autocomplete="off"
+    spellcheck="false"
+  >
+  <button type="submit" class="btn btn-primary">Search</button>
+  {% if filter_active %}
+  <a href="/audit" class="filter-clear">Clear filter</a>
+  {% endif %}
+</form>
 {% if entries %}
 <table class="table">
   <thead>
@@ -14,6 +29,7 @@
       <th scope="col">Action</th>
       <th scope="col">Entity Type</th>
       <th scope="col">Entity ID</th>
+      <th scope="col">Payload</th>
     </tr>
   </thead>
   <tbody>
@@ -24,6 +40,12 @@
       <td>{{ entry.action }}</td>
       <td>{{ entry.entity_type }}</td>
       <td>{{ entry.entity_id }}</td>
+      <td>
+        <details>
+          <summary>View</summary>
+          <pre class="mono-payload">{{ entry.payload | tojson(2) }}</pre>
+        </details>
+      </td>
     </tr>
     {% endfor %}
   </tbody>
@@ -31,7 +53,7 @@
 {% else %}
 <div class="empty-state">
   <h2>No audit entries found</h2>
-  <p>Actions recorded by the agency will appear here.</p>
+  <p>Check the correlation ID and try again, or clear the filter to browse the full log.</p>
 </div>
 {% endif %}
 {% endblock %}

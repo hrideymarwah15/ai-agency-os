@@ -21,11 +21,19 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent
 @router.get("")
 async def audit_page(
     request: Request,
+    correlation_id: str | None = None,
     _owner: str = Depends(get_current_owner),
     session: AsyncSession = Depends(get_db),
 ) -> Response:
-    """Render the newest 50 audit entries (read-only; filter UI lands in plan 02)."""
-    entries = await AuditService.list_recent(session, limit=50)
+    """Render the audit log, newest first — optionally filtered to one correlation trail.
+
+    Read-only (T-02-02): owner-guarded; the correlation_id is used as a query
+    filter only and is never echoed into the rendered page (UI-SPEC security).
+    """
+    if correlation_id:
+        entries = await AuditService.query(session, correlation_id=correlation_id)
+    else:
+        entries = await AuditService.list_recent(session, limit=100)
     flash = read_flash(request)
     response = templates.TemplateResponse(
         request,
@@ -36,6 +44,7 @@ async def audit_page(
             "agency_name": config.settings.agency_name,
             "owner_email": config.settings.owner_email,
             "active_page": "audit",
+            "filter_active": correlation_id is not None,
         },
     )
     clear_flash(response)
