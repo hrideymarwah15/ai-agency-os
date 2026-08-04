@@ -32,8 +32,15 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Owner can approve, reject, or escalate every approval-gated action (contracts, payments, below-floor offers, legal changes) from the approval queue; approving resumes the paused agent workflow, rejecting halts it — and the round-trip is proven with the existing CEO/LeadHunter agents
   4. LLM spend and outreach volume can never exceed the owner's configured caps — cap-exceeding calls/sends are hard-blocked and logged; scheduled jobs heartbeat and alert the owner on silent failure
   5. Every fetch path consults robots.txt (deny-by-default) with per-domain token-bucket rate limiting; outreach sends enforce anti-spam volume caps, require consent records, and consult the suppression list — one-click unsubscribe removes recipients from future sends
-**Plans**: TBD
+**Plans**: 5 plans
 **UI hint**: yes
+
+Plans:
+- [ ] 01-01-PLAN.md — Walking Skeleton: package + deps + uv.lock, Alembic migrations, app boot, owner login, DB-backed audit route (Wave 0 tests + CI)
+- [ ] 01-02-PLAN.md — Append-only audit log: AuditService query, immutability trigger, /audit correlation filter page
+- [ ] 01-04-PLAN.md — Budget caps + scheduler: atomic LLM/outreach counters, call_llm gate, heartbeat scheduler
+- [ ] 01-05-PLAN.md — Compliance middleware: robots deny-by-default, token-bucket rate limits, send gates, one-click unsubscribe
+- [ ] 01-03-PLAN.md — Approval engine capstone: LangGraph interrupt gate over CEO/LeadHunter, approval queue UI, sweeper
 
 ### Phase 2: Discovery
 **Goal**: The system finds, enriches, audits, and qualifies real business leads from compliant sources, detects ROI-quantified opportunities, scores them into a priority queue, and the owner sees the resulting pipeline state in the dashboard — with scraped content kept out of instruction context at ingestion.
