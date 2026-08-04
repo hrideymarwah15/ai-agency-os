@@ -51,7 +51,7 @@ def test_init_db_raises_when_database_url_empty(monkeypatch):
 def test_datetime_defaults_are_tz_aware():
     default = Business.__table__.c.created_at.default.arg
     assert callable(default)
-    value = default()
+    value = default(None)
     assert value.tzinfo is not None
     assert value.tzinfo.utcoffset(value).total_seconds() == 0  # UTC
 
@@ -59,7 +59,7 @@ def test_datetime_defaults_are_tz_aware():
 def test_json_columns_use_callable_defaults():
     default = Business.__table__.c.social_links.default.arg
     assert callable(default)
-    assert default() == {}
+    assert default(None) == {}
 
 
 def test_all_sixteen_tables_in_metadata():
