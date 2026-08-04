@@ -163,3 +163,12 @@ Lifespan order now: `init_db → alembic upgrade → checkpointer setup → buil
 ## Known Stubs
 
 None. `reserve_outreach`'s call site is intentionally deferred to the Phase 3 send service (documented decision above — the atomic counter itself is complete and test-proven).
+
+## Self-Check: PASSED
+
+- [x] `backend/services/budget.py`, `backend/services/scheduler.py`, `backend/agents/base.py`, `backend/main.py`, `tests/test_budget.py`, `tests/test_scheduler.py`, `tests/test_llm_client.py` all exist
+- [x] RED commit 1d01a23, GREEN commit 4689438, scheduler commit dae2f8c, docs commit 887c3c9 all present in git log
+- [x] `uv run pytest tests/ -x -q` → 51 passed
+- [x] ruff/black/mypy clean on all plan files
+- [x] Live boot verified (uvicorn /health 200 + scheduler_heartbeats rows)
+- [x] No modifications to STATE.md / ROADMAP.md
