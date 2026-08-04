@@ -12,14 +12,19 @@ from typing import TYPE_CHECKING
 
 from alembic import command
 from alembic.config import Config
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from loguru import logger
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend import database
+from backend.api import audit as audit_api
+from backend.api import auth as auth_api
+from backend.auth.session import set_flash
 
 if TYPE_CHECKING:
     # Typing-only: loguru does not export Record at runtime.
@@ -67,6 +72,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="AI Agency OS", lifespan=lifespan)
 
 _configure_logging()
+
+templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+app.include_router(auth_api.router)
+app.include_router(audit_api.router)
+
+
+@app.exception_handler(HTTPException)
+async def handle_http_exception(request: Request, exc: HTTPException) -> Response:
+    """T-01-03: any 401 (missing/expired/tampered session) bounces to /auth/login."""
+    if exc.status_code == 401:
+        response = RedirectResponse(url="/auth/login", status_code=302)
+        set_flash(response, "Your session has expired. Please log in again.")
+        return response
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.get("/health")

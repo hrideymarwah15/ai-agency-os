@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Log in — AI Agency OS{% endblock %}
+{% block content %}
+<div class="login-shell">
+  <div class="card login-card">
+    <h1 class="login-brand">{{ agency_name }}</h1>
+    <form method="post" action="/auth/login" class="form">
+      <div class="form-field">
+        <label class="label" for="email">Email</label>
+        <input class="input" type="email" id="email" name="email" autocomplete="username" required>
+      </div>
+      <div class="form-field">
+        <label class="label" for="password">Password</label>
+        <input class="input" type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn--block">Log in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

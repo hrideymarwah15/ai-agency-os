@@ -8,8 +8,9 @@ LOGIN_DATA = {"email": "owner@test.local"}
 
 def _client():
     """TestClient with the app imported AFTER fixtures set the test env."""
-    from backend.main import app
     from fastapi.testclient import TestClient
+
+    from backend.main import app
 
     return TestClient(app, follow_redirects=False)
 

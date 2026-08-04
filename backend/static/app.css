@@ -1,0 +1,224 @@
+/* AI Agency OS — Phase 1 control surface (D-17 server-rendered UI).
+   Tokens mirror the UI-SPEC design system 1:1 for mechanical Phase 2
+   migration to Tailwind v4 + shadcn (UI-SPEC §Forward Compatibility). */
+
+:root {
+  /* Color (UI-SPEC §Color) */
+  --bg: #F8FAFC;          /* slate-50 — page background */
+  --surface: #FFFFFF;     /* cards, nav, tables */
+  --border: #E2E8F0;      /* slate-200 — borders, dividers */
+  --text: #0F172A;        /* slate-900 — primary text */
+  --text-muted: #475569;  /* slate-600 — secondary text */
+  --accent: #2563EB;      /* blue-600 — primary actions only */
+  --destructive: #DC2626; /* red-600 — destructive actions only */
+
+  /* Status badges (text on tinted bg, >= 4.5:1) */
+  --amber-text: #B45309;  --amber-bg: #FEF3C7;
+  --green-text: #15803D;  --green-bg: #DCFCE7;
+  --red-text: #B91C1C;    --red-bg: #FEE2E2;
+  --violet-text: #7C3AED; --violet-bg: #EDE9FE;
+  --slate-text: #475569;  --slate-bg: #F1F5F9;
+
+  /* Flash messages */
+  --flash-success-text: #15803D; --flash-success-bg: #F0FDF4; --flash-success-border: #BBF7D0;
+  --flash-error-text: #B91C1C;   --flash-error-bg: #FEF2F2;  --flash-error-border: #FECACA;
+
+  /* Spacing (4px grid) and radius */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-full: 999px;
+
+  /* Type */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: SF Mono, Menlo, Consolas, monospace;
+  --text-xs: 14px;
+  --text-sm: 16px;
+  --text-md: 20px;
+  --text-lg: 24px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+a { color: var(--accent); }
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--surface);
+  padding: var(--space-sm) var(--space-md);
+  z-index: 10;
+}
+.skip-link:focus { left: 0; }
+
+/* ── Layout ─────────────────────────────────────────────────────────── */
+
+.main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-md) var(--space-2xl);
+}
+
+/* ── Top nav (UI-SPEC §Layout Contract) ─────────────────────────────── */
+
+.nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.nav__inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  min-height: 56px;
+}
+.nav__brand { font-weight: 600; font-size: var(--text-sm); }
+.nav__links { display: flex; gap: var(--space-md); flex: 1; }
+.nav__account { display: flex; align-items: center; gap: var(--space-md); }
+.nav__email { color: var(--text-muted); font-size: var(--text-xs); }
+.nav-link {
+  text-decoration: none;
+  color: var(--text-muted);
+  padding: var(--space-sm) var(--space-xs);
+  border-bottom: 2px solid transparent;
+}
+.nav-link:hover { color: var(--text); }
+.nav-link--active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ── Buttons (36px tall, 4px-grid-compliant) ────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:hover { filter: brightness(0.96); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn--block { width: 100%; }
+
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-secondary { background: var(--surface); border-color: var(--border); color: var(--text); }
+.btn-destructive { background: var(--destructive); color: #fff; }
+.btn-ghost { background: transparent; color: var(--text-muted); }
+.btn-ghost:hover { background: var(--bg); }
+
+/* ── Cards ──────────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+}
+
+/* ── Login page (400px centered card) ───────────────────────────────── */
+
+.login-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+}
+.login-card { width: 100%; max-width: 400px; }
+.login-brand { font-size: var(--text-lg); font-weight: 600; line-height: 1.2; margin: 0 0 var(--space-lg); }
+
+/* ── Forms ──────────────────────────────────────────────────────────── */
+
+.form-field { margin-bottom: var(--space-md); }
+.label { display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-sm); }
+.input {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text);
+  background: var(--surface);
+}
+.input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Flash messages ─────────────────────────────────────────────────── */
+
+.flash {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-lg);
+}
+.flash--success { color: var(--flash-success-text); background: var(--flash-success-bg); border: 1px solid var(--flash-success-border); }
+.flash--error { color: var(--flash-error-text); background: var(--flash-error-bg); border: 1px solid var(--flash-error-border); }
+
+/* ── Page header ────────────────────────────────────────────────────── */
+
+.page-header { margin-bottom: var(--space-xl); }
+.page-header h1 { font-size: var(--text-lg); font-weight: 600; line-height: 1.2; margin: 0 0 var(--space-sm); }
+.page-header p { color: var(--text-muted); margin: 0; }
+
+/* ── Table ──────────────────────────────────────────────────────────── */
+
+.table { width: 100%; border-collapse: collapse; background: var(--surface); }
+.table th {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg);
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border);
+}
+.table td { font-size: var(--text-sm); padding: var(--space-sm) var(--space-md); border-bottom: 1px solid var(--border); }
+.table tr:last-child td { border-bottom: none; }
+
+/* ── Badges ─────────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-block;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  padding: var(--space-xs) var(--space-sm);
+}
+.badge--pending { color: var(--amber-text); background: var(--amber-bg); }
+.badge--approved { color: var(--green-text); background: var(--green-bg); }
+.badge--rejected { color: var(--red-text); background: var(--red-bg); }
+.badge--escalated { color: var(--violet-text); background: var(--violet-bg); }
+.badge--expired { color: var(--slate-text); background: var(--slate-bg); }
+
+/* ── Empty state ────────────────────────────────────────────────────── */
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-2xl);
+}
+.empty-state h2 { font-size: var(--text-md); font-weight: 600; margin: 0 0 var(--space-sm); }
+.empty-state p { color: var(--text-muted); margin: 0; }

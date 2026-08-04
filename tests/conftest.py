@@ -69,8 +69,7 @@ async def test_engine():
 @pytest.fixture
 async def test_session(test_engine):
     """Async session bound to the test database."""
-    from sqlalchemy.ext.asyncio import async_sessionmaker
-    from sqlalchemy.orm import AsyncSession
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     maker = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
     async with maker() as session:

@@ -52,6 +52,11 @@ target-version = ['py311']
 line-length = 100
 target-version = "py311"
 
+[tool.ruff.lint]
+# B008: Depends()/Query() in FastAPI argument defaults is the framework's
+# dependency-injection contract, not a mutable-default bug.
+extend-ignore = ["B008"]
+
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true

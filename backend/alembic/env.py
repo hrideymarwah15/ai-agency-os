@@ -1,4 +1,5 @@
 """Alembic async migration environment for AI Agency OS."""
+
 from __future__ import annotations
 
 import asyncio
@@ -9,12 +10,12 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from backend.config import settings
-from backend.database import Base, build_database_url
+from sqlalchemy.sql.schema import SchemaItem
 
 # Import models so autogenerate sees every table (alembic autogen imports metadata).
 import backend.database as _database  # noqa: F401
+from backend.config import settings
+from backend.database import Base, build_database_url
 
 config = context.config
 
@@ -22,6 +23,26 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
+# Tables created and managed by langgraph AsyncPostgresSaver.setup(), NOT by
+# Alembic — autogen/`alembic check` must never propose dropping or diffing them.
+_LANGGRAPH_TABLES = {
+    "checkpoints",
+    "checkpoint_writes",
+    "checkpoint_blobs",
+    "checkpoint_migrations",
+}
+
+
+def include_object(
+    object: SchemaItem,
+    name: str | None,
+    type_: str,
+    reflected: bool,
+    compare_to: SchemaItem | None,
+) -> bool:
+    """Skip langgraph-managed checkpointer tables in autogenerate comparisons."""
+    return not (type_ == "table" and name in _LANGGRAPH_TABLES)
 
 
 def get_url() -> str:
@@ -42,6 +63,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -49,7 +71,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=include_object,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
