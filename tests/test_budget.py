@@ -1,8 +1,9 @@
 """Atomic budget-cap tests — FND-06/D-11: guarded UPDATE counters, hard-block + audit, pruning."""
 
 import asyncio
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import delete, func, select
@@ -10,7 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.config import settings
 from backend.database import AuditLog, LLMSpend, OutreachSpend
-from backend.services.budget import BudgetExceededError, prune_spend_rows, reserve_llm, reserve_outreach
+from backend.services.budget import (
+    BudgetExceededError,
+    prune_spend_rows,
+    reserve_llm,
+    reserve_outreach,
+)
 
 
 @pytest.fixture
@@ -18,7 +24,6 @@ async def budget_db(test_session):
     """Clean the spend/audit tables the budget service writes to."""
     await test_session.execute(delete(LLMSpend))
     await test_session.execute(delete(OutreachSpend))
-    await test_session.execute(delete(AuditLog).where(AuditLog.action == "budget_blocked"))
     await test_session.commit()
     yield test_session
 
@@ -38,7 +43,7 @@ async def test_reserve_llm_within_cap_creates_row(budget_db):
     assert row is not None
     assert row.cost_cents == 100
     assert row.calls == 1
-    assert row.spend_date == date.today()
+    assert row.spend_date == datetime.now(UTC).date()
 
 
 async def test_reserve_llm_repeated_reserves_accumulate(budget_db):
@@ -53,19 +58,24 @@ async def test_reserve_llm_repeated_reserves_accumulate(budget_db):
 
 async def test_reserve_llm_over_cap_hard_blocks_and_audits(budget_db, monkeypatch):
     monkeypatch.setattr(settings, "llm_daily_budget_usd_openrouter", Decimal("1.00"))  # 100 cents
+    # Unique model per run: audit_logs is append-only, so assertions must be scoped.
+    model = f"breach-{uuid4().hex[:8]}"
 
-    await reserve_llm(budget_db, provider="openrouter", model="model-a", cost_cents=100)
+    await reserve_llm(budget_db, provider="openrouter", model=model, cost_cents=100)
     with pytest.raises(BudgetExceededError):
-        await reserve_llm(budget_db, provider="openrouter", model="model-a", cost_cents=1)
+        await reserve_llm(budget_db, provider="openrouter", model=model, cost_cents=1)
 
     # Counter never exceeded the cap.
-    row = await _llm_row(budget_db)
+    row = await _llm_row(budget_db, model=model)
     assert row is not None
     assert row.cost_cents == 100
 
-    # Audit row written for the blocked attempt.
+    # Audit row written for the blocked attempt (scoped by JSONB payload model).
     result = await budget_db.execute(
-        select(AuditLog).where(AuditLog.action == "budget_blocked")
+        select(AuditLog).where(
+            AuditLog.action == "budget_blocked",
+            AuditLog.payload["model"].astext == model,
+        )
     )
     audit = result.scalars().all()
     assert len(audit) == 1
@@ -116,23 +126,21 @@ async def test_reserve_outreach_within_limit(budget_db):
     for _ in range(settings.daily_outreach_limit):
         await reserve_outreach(budget_db, channel="EMAIL")
 
-    result = await budget_db.execute(
-        select(OutreachSpend).where(OutreachSpend.channel == "EMAIL")
-    )
+    result = await budget_db.execute(select(OutreachSpend).where(OutreachSpend.channel == "EMAIL"))
     row = result.scalar_one()
     assert row.sent_count == settings.daily_outreach_limit
 
 
 async def test_reserve_outreach_over_limit_hard_blocks_and_audits(budget_db):
+    # Unique channel per run: audit_logs is append-only, so assertions must be scoped.
+    channel = f"EMAIL-{uuid4().hex[:8]}"
     for _ in range(settings.daily_outreach_limit):
-        await reserve_outreach(budget_db, channel="EMAIL")
+        await reserve_outreach(budget_db, channel=channel)
 
     with pytest.raises(BudgetExceededError):
-        await reserve_outreach(budget_db, channel="EMAIL")
+        await reserve_outreach(budget_db, channel=channel)
 
-    result = await budget_db.execute(
-        select(OutreachSpend).where(OutreachSpend.channel == "EMAIL")
-    )
+    result = await budget_db.execute(select(OutreachSpend).where(OutreachSpend.channel == channel))
     row = result.scalar_one()
     assert row.sent_count == settings.daily_outreach_limit
 
@@ -140,24 +148,37 @@ async def test_reserve_outreach_over_limit_hard_blocks_and_audits(budget_db):
         select(AuditLog).where(
             AuditLog.action == "budget_blocked",
             AuditLog.entity_type == "outreach_spend",
+            AuditLog.payload["channel"].astext == channel,
         )
     )
     audits = audit_result.scalars().all()
     assert len(audits) == 1
-    assert audits[0].entity_id == "EMAIL"
+    assert audits[0].entity_id == channel
     assert audits[0].payload["cap"] == settings.daily_outreach_limit
 
 
 async def test_prune_spend_rows_deletes_older_than_retention(budget_db):
-    old_date = date.today() - timedelta(days=40)
+    old_date = datetime.now(UTC).date() - timedelta(days=40)
     await budget_db.execute(
         delete(LLMSpend).where(LLMSpend.provider == "openrouter", LLMSpend.model == "prune-old")
     )
-    budget_db.add(LLMSpend(provider="openrouter", model="prune-old", spend_date=old_date, cost_cents=10, calls=1))
+    budget_db.add(
+        LLMSpend(
+            provider="openrouter", model="prune-old", spend_date=old_date, cost_cents=10, calls=1
+        )
+    )
     await budget_db.execute(
         delete(LLMSpend).where(LLMSpend.provider == "openrouter", LLMSpend.model == "prune-fresh")
     )
-    budget_db.add(LLMSpend(provider="openrouter", model="prune-fresh", spend_date=date.today(), cost_cents=10, calls=1))
+    budget_db.add(
+        LLMSpend(
+            provider="openrouter",
+            model="prune-fresh",
+            spend_date=datetime.now(UTC).date(),
+            cost_cents=10,
+            calls=1,
+        )
+    )
     await budget_db.commit()
 
     await prune_spend_rows(budget_db, retention_days=30)

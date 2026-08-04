@@ -4,14 +4,15 @@ Never hits the network: every provider call goes through an injected
 httpx.AsyncClient built on httpx.MockTransport.
 """
 
+from uuid import uuid4
+
 import httpx
 import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from backend.config import settings
+import backend.agents.base as base_module
 from backend.database import AuditLog
-from backend.services.budget import BudgetExceededError
 
 GEMINI_SUCCESS = {"candidates": [{"content": {"parts": [{"text": "gemini-ok"}]}}]}
 OPENAI_SUCCESS = {"choices": [{"message": {"content": "openai-ok"}}]}
@@ -34,9 +35,22 @@ def skip_budget_gate(monkeypatch):
     async def _noop_reserve(session, **kwargs) -> None:
         return None
 
-    import backend.agents.base as base_module
-
     monkeypatch.setattr(base_module, "reserve_llm", _noop_reserve)
+
+
+@pytest.fixture
+def provider_keys(monkeypatch):
+    """Force provider selection: set exactly the given keys, blank the others.
+
+    A developer .env may carry real API keys — the openrouter key wins provider
+    selection, so every dispatch test must blank the other two providers.
+    """
+
+    def _apply(**keys: str) -> None:
+        for name in ("openrouter_api_key", "groq_api_key", "gemini_api_key"):
+            monkeypatch.setattr(base_module.settings, name, keys.get(name, ""))
+
+    return _apply
 
 
 @pytest.fixture
@@ -51,14 +65,22 @@ def instant_retries(monkeypatch):
     monkeypatch.setattr(tenacity_asyncio, "_portable_async_sleep", _no_sleep)
 
 
-def _agent(name="tester"):
+def _agent(name="tester", model="model-x"):
     from backend.agents.base import LLMAgent
 
-    return LLMAgent(name=name, model="model-x")
+    class _TestAgent(LLMAgent):
+        """Concrete LLMAgent (abstract base needs get_default_system_prompt)."""
+
+        def get_default_system_prompt(self) -> str:
+            return "test system prompt"
+
+    return _TestAgent(name=name, model=model)
 
 
-async def test_gemini_sends_api_key_header_not_url_query(monkeypatch, skip_budget_gate, llm_session_maker):
-    monkeypatch.setattr(settings, "gemini_api_key", "test-gemini-key")
+async def test_gemini_sends_api_key_header_not_url_query(
+    monkeypatch, skip_budget_gate, llm_session_maker, provider_keys
+):
+    provider_keys(gemini_api_key="test-gemini-key")
     captured: dict = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -67,9 +89,7 @@ async def test_gemini_sends_api_key_header_not_url_query(monkeypatch, skip_budge
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     try:
-        result = await _agent().call_llm(
-            [{"role": "user", "content": "hi"}], client=client
-        )
+        result = await _agent().call_llm([{"role": "user", "content": "hi"}], client=client)
     finally:
         await client.aclose()
 
@@ -77,13 +97,15 @@ async def test_gemini_sends_api_key_header_not_url_query(monkeypatch, skip_budge
     request = captured["request"]
     # D-18: key in header...
     assert request.headers.get("X-Goog-Api-Key") == "test-gemini-key"
-    # ...and never in the URL query.
-    assert "key=" not in request.url.query
+    # ...and never in the URL query (httpx URL.query is bytes).
+    assert "key=" not in request.url.query.decode()
     assert request.url.path == "/v1beta/models/model-x:generateContent"
 
 
-async def test_openrouter_builds_url_and_auth_header(monkeypatch, skip_budget_gate, llm_session_maker):
-    monkeypatch.setattr(settings, "openrouter_api_key", "test-or-key")
+async def test_openrouter_builds_url_and_auth_header(
+    monkeypatch, skip_budget_gate, llm_session_maker, provider_keys
+):
+    provider_keys(openrouter_api_key="test-or-key")
     captured: dict = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -102,8 +124,10 @@ async def test_openrouter_builds_url_and_auth_header(monkeypatch, skip_budget_ga
     assert request.headers.get("Authorization") == "Bearer test-or-key"
 
 
-async def test_groq_builds_url_and_auth_header(monkeypatch, skip_budget_gate, llm_session_maker):
-    monkeypatch.setattr(settings, "groq_api_key", "test-groq-key")
+async def test_groq_builds_url_and_auth_header(
+    monkeypatch, skip_budget_gate, llm_session_maker, provider_keys
+):
+    provider_keys(groq_api_key="test-groq-key")
     captured: dict = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -123,9 +147,9 @@ async def test_groq_builds_url_and_auth_header(monkeypatch, skip_budget_gate, ll
 
 
 async def test_429_retried_then_error_envelope(
-    monkeypatch, skip_budget_gate, llm_session_maker, instant_retries
+    monkeypatch, skip_budget_gate, llm_session_maker, instant_retries, provider_keys
 ):
-    monkeypatch.setattr(settings, "groq_api_key", "test-groq-key")
+    provider_keys(groq_api_key="test-groq-key")
     attempts = {"count": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -142,8 +166,10 @@ async def test_429_retried_then_error_envelope(
     assert result.startswith("ERROR:")
 
 
-async def test_success_path_returns_parsed_content(monkeypatch, skip_budget_gate, llm_session_maker):
-    monkeypatch.setattr(settings, "openrouter_api_key", "test-or-key")
+async def test_success_path_returns_parsed_content(
+    monkeypatch, skip_budget_gate, llm_session_maker, provider_keys
+):
+    provider_keys(openrouter_api_key="test-or-key")
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=OPENAI_SUCCESS)
@@ -158,9 +184,9 @@ async def test_success_path_returns_parsed_content(monkeypatch, skip_budget_gate
 
 
 async def test_network_error_returns_error_envelope(
-    monkeypatch, skip_budget_gate, llm_session_maker, instant_retries
+    monkeypatch, skip_budget_gate, llm_session_maker, instant_retries, provider_keys
 ):
-    monkeypatch.setattr(settings, "openrouter_api_key", "test-or-key")
+    provider_keys(openrouter_api_key="test-or-key")
 
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection refused", request=request)
@@ -175,20 +201,21 @@ async def test_network_error_returns_error_envelope(
 
 
 async def test_budget_breach_never_contacts_provider(
-    monkeypatch, llm_session_maker, instant_retries
+    monkeypatch, llm_session_maker, instant_retries, provider_keys
 ):
     """Gate breach → ERROR envelope, budget_blocked audit row, zero network calls."""
     from decimal import Decimal
 
     from backend.database import LLMSpend
 
-    monkeypatch.setattr(settings, "groq_api_key", "test-groq-key")
+    provider_keys(groq_api_key="test-groq-key")
     # $0.01 budget → any call (min 1 cent estimate) exceeds it after the first reserve.
-    monkeypatch.setattr(settings, "llm_daily_budget_usd_groq", Decimal("0.01"))
+    monkeypatch.setattr(base_module.settings, "llm_daily_budget_usd_groq", Decimal("0.01"))
+    # Unique model per run: audit_logs is append-only, so assertions must be scoped.
+    model = f"breach-{uuid4().hex[:8]}"
 
     async with llm_session_maker() as session:
         await session.execute(delete(LLMSpend).where(LLMSpend.provider == "groq"))
-        await session.execute(delete(AuditLog).where(AuditLog.action == "budget_blocked"))
         await session.commit()
 
     calls = {"count": 0}
@@ -199,7 +226,9 @@ async def test_budget_breach_never_contacts_provider(
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     try:
-        result = await _agent().call_llm([{"role": "user", "content": "hi"}], client=client)
+        result = await _agent(name="tester", model=model).call_llm(
+            [{"role": "user", "content": "hi"}], client=client
+        )
     finally:
         await client.aclose()
 
@@ -208,8 +237,17 @@ async def test_budget_breach_never_contacts_provider(
 
     async with llm_session_maker() as session:
         audit = (
-            await session.execute(select(AuditLog).where(AuditLog.action == "budget_blocked"))
-        ).scalars().all()
+            (
+                await session.execute(
+                    select(AuditLog).where(
+                        AuditLog.action == "budget_blocked",
+                        AuditLog.payload["model"].astext == model,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
     assert len(audit) == 1
     assert audit[0].entity_type == "llm_spend"
     assert audit[0].entity_id == "groq"
