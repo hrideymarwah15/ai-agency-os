@@ -132,3 +132,7 @@ None. `build_compliant_client()`'s robots-audit session seam defaults to `None` 
 ## Threat Surface
 
 No new surface beyond the plan's threat model. The `/unsubscribe` public mutation endpoint is T-05-02 in the plan (token-gated, no email parameter, 7-day TTL, no existence-revealing responses).
+
+## Self-Check: PASSED
+
+All 11 plan files + SUMMARY exist on disk; all 4 commits (`a73463c`, `15d52d7`, `25245b1`, `e137248`) verified in git log; `uv run pytest tests/ -q` → 74 passed. No deletions in any commit. Working tree contains only pre-existing untracked files belonging to other plans (left untouched, per orchestrator ownership of STATE/ROADMAP).
