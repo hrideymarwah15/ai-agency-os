@@ -1,7 +1,7 @@
 """Auth flow tests — D-16 cookie flags, uniform login failure, audit write, session guard."""
 
 import conftest
-from sqlalchemy import delete, select
+from sqlalchemy import select, text
 
 LOGIN_DATA = {"email": "owner@test.local"}
 
@@ -71,7 +71,8 @@ def test_login_wrong_email_uniform_flash(migrated_db):
 async def test_login_writes_owner_login_audit_row(migrated_db, test_session):
     from backend.database import AuditLog
 
-    await test_session.execute(delete(AuditLog))
+    # TRUNCATE, not DELETE: plan 02's append-only trigger rejects DELETEs (T-02-01).
+    await test_session.execute(text("TRUNCATE audit_logs"))
     await test_session.commit()
 
     with _client() as client:
@@ -88,9 +89,8 @@ async def test_login_writes_owner_login_audit_row(migrated_db, test_session):
 
 
 async def test_audit_page_renders_owner_login(migrated_db, test_session):
-    from backend.database import AuditLog
-
-    await test_session.execute(delete(AuditLog))
+    # TRUNCATE, not DELETE: plan 02's append-only trigger rejects DELETEs (T-02-01).
+    await test_session.execute(text("TRUNCATE audit_logs"))
     await test_session.commit()
 
     with _client() as client:
