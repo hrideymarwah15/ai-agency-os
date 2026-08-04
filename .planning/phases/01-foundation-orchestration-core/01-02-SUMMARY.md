@@ -87,7 +87,7 @@ Each task was committed atomically:
 1. **Task 1: Failing audit contract tests** — `262cecd` (test)
 2. **Task 2: AuditService query + immutability trigger + /audit filter page** — `7e9e429` (feat), `99fd352` (fix — test_auth.py TRUNCATE cleanup)
 
-**Plan metadata:** pending (docs: complete audit log plan)
+**Plan metadata:** `ad8b6ef` (docs: complete audit log plan)
 
 ## Files Created/Modified
 
