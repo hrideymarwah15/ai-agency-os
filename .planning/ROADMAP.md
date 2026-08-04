@@ -45,8 +45,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-02-PLAN.md — Append-only audit log: AuditService query, immutability trigger, /audit correlation filter page
-- [ ] 01-04-PLAN.md — Budget caps + scheduler: atomic LLM/outreach counters, call_llm gate, heartbeat scheduler
+- [x] 01-02-PLAN.md — Append-only audit log: AuditService query, immutability trigger, /audit correlation filter page
+- [x] 01-04-PLAN.md — Budget caps + scheduler: atomic LLM/outreach counters, call_llm gate, heartbeat scheduler
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -144,7 +144,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Orchestration Core | 1/5 | In Progress|  |
+| 1. Foundation & Orchestration Core | 3/5 | In Progress|  |
 | 2. Discovery | 0/TBD | Not started | - |
 | 3. Sales | 0/TBD | Not started | - |
 | 4. Legal + Finance | 0/TBD | Not started | - |
