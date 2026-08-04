@@ -1,4 +1,5 @@
 """Config validation tests — required identity fields fail fast, alias mapping, new sections."""
+
 from decimal import Decimal
 
 import pytest

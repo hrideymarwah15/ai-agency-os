@@ -1,4 +1,5 @@
 """Database lifecycle tests — RuntimeError guard, URL.create engine, tz-aware and callable defaults."""
+
 import pytest
 
 from backend.database import Base, Business

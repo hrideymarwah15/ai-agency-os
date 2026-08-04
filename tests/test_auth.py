@@ -1,7 +1,6 @@
 """Auth flow tests — D-16 cookie flags, uniform login failure, audit write, session guard."""
-import conftest
 
-import pytest
+import conftest
 from sqlalchemy import delete, select
 
 LOGIN_DATA = {"email": "owner@test.local"}

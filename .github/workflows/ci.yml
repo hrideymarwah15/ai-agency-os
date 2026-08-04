@@ -1,0 +1,115 @@
+# CI (D-19): ruff → black → mypy → pytest (postgres service) + fresh-venv smoke (SC1 gate).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install deps
+        run: uv sync --frozen --extra dev
+      - name: Ruff
+        run: uv run ruff check .
+
+  black:
+    runs-on: ubuntu-latest
+    needs: ruff
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install deps
+        run: uv sync --frozen --extra dev
+      - name: Black
+        run: uv run black --check .
+
+  mypy:
+    runs-on: ubuntu-latest
+    needs: black
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install deps
+        run: uv sync --frozen --extra dev
+      - name: Mypy
+        run: uv run mypy backend/
+
+  pytest:
+    runs-on: ubuntu-latest
+    needs: mypy
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: ai_agency_os_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ai_agency_os_test
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ai_agency_os_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install deps
+        run: uv sync --frozen --extra dev
+      - name: Migrate
+        run: uv run alembic upgrade head
+      - name: Pytest
+        run: uv run pytest
+      - name: Migrations current (FND-03)
+        run: uv run alembic check
+
+  smoke:
+    runs-on: ubuntu-latest
+    needs: pytest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: ai_agency_os_smoke
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ai_agency_os_smoke
+      SESSION_SECRET: ci-smoke-session-secret
+      OWNER_EMAIL: owner@smoke.test
+      OWNER_PASSWORD_HASH: "$argon2id$v=19$m=65536,t=3,p=4$qQdzhLb1s7p4JTrz+bJR/Q$NqKPuwZMbxlcQztgg+p/okaruUwHeLgEGCcKg84F7kk"
+      AGENCY_ADDRESS: "1 Smoke St, CI"
+      COOKIE_SECURE: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fresh venv install (FND-01)
+        run: |
+          python -m venv .venv-smoke
+          .venv-smoke/bin/pip install -e .
+      - name: Migrate scratch DB
+        run: .venv-smoke/bin/alembic upgrade head
+      - name: Boot + health check (SC1)
+        run: |
+          .venv-smoke/bin/uvicorn backend.main:app --port 8000 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/health && break || sleep 1
+          done
+          curl -sf http://localhost:8000/health | grep -q '"ok"'
