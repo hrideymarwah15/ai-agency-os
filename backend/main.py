@@ -25,6 +25,7 @@ from backend import database
 from backend.api import audit as audit_api
 from backend.api import auth as auth_api
 from backend.auth.session import set_flash
+from backend.services.scheduler import build_scheduler, write_heartbeat
 
 if TYPE_CHECKING:
     # Typing-only: loguru does not export Record at runtime.
@@ -55,7 +56,7 @@ def _configure_logging() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Full app lifecycle: init DB → migrate → checkpointer setup → shutdown."""
+    """Full app lifecycle: init DB → migrate → checkpointer → scheduler → shutdown."""
     await database.init_db()
     cfg = Config(str(PROJECT_ROOT / "alembic.ini"))
     cfg.set_main_option("script_location", str(PROJECT_ROOT / "backend" / "alembic"))
@@ -65,7 +66,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # from_conn_string is an async context manager; setup() must run once (Pitfall 3).
     async with AsyncPostgresSaver.from_conn_string(database.postgres_dsn()) as checkpointer:
         await checkpointer.setup()
+    # FND-07: heartbeat-monitored scheduler (short, enqueue-only jobs — D-12).
+    scheduler = build_scheduler()
+    scheduler.start()
+    session_maker = database.async_session_maker
+    if session_maker is not None:
+        async with session_maker() as session:
+            await write_heartbeat(session, job_name="startup")
     yield
+    scheduler.shutdown(wait=False)
     await database.close_db()
 
 

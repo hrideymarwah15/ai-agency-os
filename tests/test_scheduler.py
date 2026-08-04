@@ -22,9 +22,9 @@ async def clean_heartbeats(test_session):
 
 @pytest.fixture
 def loguru_sink():
-    """Capture loguru records for the duration of the test."""
+    """Capture loguru records for the duration of the test (sink gets Record dicts)."""
     records: list[dict] = []
-    sink_id = loguru_logger.add(records.append, format="{message}")
+    sink_id = loguru_logger.add(records.append)
     yield records
     loguru_logger.remove(sink_id)
 
@@ -79,5 +79,5 @@ async def test_job_error_listener_logs_via_loguru(loguru_sink, monkeypatch):
     await asyncio.sleep(0.6)
     scheduler.shutdown(wait=False)
 
-    messages = [record["message"] for record in loguru_sink.records]
-    assert any("[scheduler] job failed" in message for message in messages)
+    # loguru callable sinks receive Message (a str subclass) — substring match suffices.
+    assert any("[scheduler] job failed" in record for record in loguru_sink)
