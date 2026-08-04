@@ -50,7 +50,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-05-PLAN.md — Compliance middleware: robots deny-by-default, token-bucket rate limits, send gates, one-click unsubscribe
+- [x] 01-05-PLAN.md — Compliance middleware: robots deny-by-default, token-bucket rate limits, send gates, one-click unsubscribe
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -144,7 +144,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Orchestration Core | 3/5 | In Progress|  |
+| 1. Foundation & Orchestration Core | 4/5 | In Progress|  |
 | 2. Discovery | 0/TBD | Not started | - |
 | 3. Sales | 0/TBD | Not started | - |
 | 4. Legal + Finance | 0/TBD | Not started | - |
