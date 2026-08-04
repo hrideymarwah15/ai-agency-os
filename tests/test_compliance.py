@@ -25,7 +25,7 @@ from backend.services.compliance.robots import RobotsPolicy
 from backend.services.compliance.send_gate import check_send
 from backend.tools.http_client import CompliantHTTPClient, RobotsDeniedError
 
-ROBOTS_ALLOW = "User-agent: *\nAllow: /\nDisallow: /private\n"
+ROBOTS_ALLOW = "User-agent: *\nDisallow: /private\n"
 
 
 @pytest.fixture
@@ -114,17 +114,28 @@ async def test_robots_refetches_after_ttl_expiry():
 
 async def test_robots_deny_by_default_writes_audit(migrated_db, compliance_db):
     calls: list[str] = []
+    host = f"deny-audit-{uuid4().hex[:8]}.example"
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append(request.url.path)
         return httpx.Response(500, text="boom")
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        policy = RobotsPolicy(client, user_agent="AIAgencyOS/1.0", ttl_seconds=60)
-        assert await policy.can_fetch("https://example.com/anything") is False
+        policy = RobotsPolicy(
+            client, user_agent="AIAgencyOS/1.0", ttl_seconds=60, session=compliance_db
+        )
+        assert await policy.can_fetch(f"https://{host}/anything") is False
     rows = (
-        await compliance_db.execute(select(AuditLog).where(AuditLog.action == "robots_denied_by_default"))
-    ).scalars().all()
+        (
+            await compliance_db.execute(
+                select(AuditLog).where(
+                    AuditLog.action == "robots_denied_by_default", AuditLog.entity_id == host
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
     assert len(rows) == 1
     assert rows[0].actor == "system"
 
@@ -269,9 +280,7 @@ async def test_send_gate_requires_address(compliance_db, monkeypatch):
     result = await check_send(compliance_db, email=email, channel=channel)
     assert result == {"allowed": False, "reason": "address_required"}
     # The blocked send must not consume a cap slot.
-    row = await compliance_db.execute(
-        select(OutreachSpend).where(OutreachSpend.channel == channel)
-    )
+    row = await compliance_db.execute(select(OutreachSpend).where(OutreachSpend.channel == channel))
     assert row.scalar_one_or_none() is None
 
 
@@ -279,12 +288,16 @@ async def test_send_gate_audits_blocked_with_reason(compliance_db):
     email = f"audit-{uuid4().hex[:8]}@example.com"
     await check_send(compliance_db, email=email, channel="EMAIL")
     rows = (
-        await compliance_db.execute(
-            select(AuditLog).where(
-                AuditLog.action == "send_blocked", AuditLog.entity_id == email
+        (
+            await compliance_db.execute(
+                select(AuditLog).where(
+                    AuditLog.action == "send_blocked", AuditLog.entity_id == email
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(rows) == 1
     assert rows[0].actor == "system"
     assert rows[0].payload["reason"] == "consent_required"
@@ -311,10 +324,16 @@ async def test_unsubscribe_valid_token_confirms_and_blocks_next_send(migrated_db
 
     assert await suppression.is_suppressed(compliance_db, email) is True
     rows = (
-        await compliance_db.execute(
-            select(AuditLog).where(AuditLog.action == "unsubscribed", AuditLog.entity_id == email)
+        (
+            await compliance_db.execute(
+                select(AuditLog).where(
+                    AuditLog.action == "unsubscribed", AuditLog.entity_id == email
+                )
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(rows) == 1
     assert rows[0].actor == "system"
     assert rows[0].entity_type == "email"
