@@ -41,7 +41,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Walking Skeleton: package + deps + uv.lock, Alembic migrations, app boot, owner login, DB-backed audit route (Wave 0 tests + CI)
+- [x] 01-01-PLAN.md — Walking Skeleton: package + deps + uv.lock, Alembic migrations, app boot, owner login, DB-backed audit route (Wave 0 tests + CI)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -144,7 +144,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Orchestration Core | 0/TBD | Not started | - |
+| 1. Foundation & Orchestration Core | 1/5 | In Progress|  |
 | 2. Discovery | 0/TBD | Not started | - |
 | 3. Sales | 0/TBD | Not started | - |
 | 4. Legal + Finance | 0/TBD | Not started | - |
