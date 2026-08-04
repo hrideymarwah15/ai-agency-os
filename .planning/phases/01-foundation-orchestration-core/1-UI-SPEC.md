@@ -1,7 +1,8 @@
 ---
 phase: 1
 slug: foundation-orchestration-core
-status: draft
+status: approved
+reviewed_at: 2026-08-05
 shadcn_initialized: false
 preset: none
 created: 2026-08-05
@@ -43,6 +44,7 @@ No dashboard analytics in Phase 1 (DASH-02 → Phase 2). Landing page after logi
 - **Main content**: single column, `max-width: 960px`, centered, `padding: 32px 16px 48px`. Page header pattern = Display title + body-size muted description (one line).
 - **Login page**: 400px card, vertically + horizontally centered, brand name as Display text above the form, no registration link (single owner).
 - **Table pages** (queue, audit): page header → filter/summary row → table → empty state (when applicable).
+- **Primary visual anchor on /approvals**: the PENDING queue group with its accent Approve buttons; the nav pending-count badge is the secondary cue. No other element competes for the accent.
 - No sidebar, no dashboard cards, no charts — deferred with the Next.js dashboard (Phase 2).
 
 ---
