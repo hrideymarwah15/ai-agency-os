@@ -337,7 +337,8 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance."""
-    return Settings()
+    # Required fields load from env/.env at runtime — pydantic-settings default
+    return Settings()  # type: ignore[call-arg]
 
 
 # Export settings instance

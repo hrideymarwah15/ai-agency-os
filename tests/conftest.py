@@ -106,10 +106,10 @@ async def pg_saver(migrated_db):
     dsn = os.environ.get(
         "TEST_DATABASE_URL", "postgresql://localhost:5432/ai_agency_os_test"
     ).replace("+asyncpg", "")
-    saver = await AsyncPostgresSaver.from_conn_string(dsn)
-    await saver.setup()
-    yield saver
-    await saver.close()
+    # from_conn_string is an async context manager (langgraph-checkpoint-postgres 3.x).
+    async with AsyncPostgresSaver.from_conn_string(dsn) as saver:
+        await saver.setup()
+        yield saver
 
 
 @pytest.fixture
