@@ -164,57 +164,57 @@ Deferred to future release. Tracked but not in current roadmap.
 | CMP-02 | Phase 1 | Pending |
 | CMP-03 | Phase 1 | Pending |
 | CMP-04 | Phase 1 | Pending |
-| CMP-05 | Phase 1 | Pending |
-| CMP-06 | Phase 1 | Pending |
-| DASH-01 | Phase 2 | Pending |
+| CMP-05 | Phase 4 | Pending |
+| CMP-06 | Phase 2 | Pending |
+| DASH-01 | Phase 1 | Pending |
 | DASH-02 | Phase 2 | Pending |
-| DASH-03 | Phase 2 | Pending |
-| LEAD-01 | Phase 3 | Pending |
-| LEAD-02 | Phase 3 | Pending |
-| LEAD-03 | Phase 3 | Pending |
-| LEAD-04 | Phase 3 | Pending |
-| LEAD-05 | Phase 3 | Pending |
-| AUDT-01 | Phase 3 | Pending |
-| AUDT-02 | Phase 3 | Pending |
-| AUDT-03 | Phase 3 | Pending |
-| AUDT-04 | Phase 3 | Pending |
-| OPP-01 | Phase 3 | Pending |
-| OPP-02 | Phase 3 | Pending |
-| OPP-03 | Phase 3 | Pending |
-| SCOR-01 | Phase 3 | Pending |
-| SCOR-02 | Phase 3 | Pending |
-| SALE-01 | Phase 4 | Pending |
-| SALE-02 | Phase 4 | Pending |
-| SALE-03 | Phase 4 | Pending |
-| SALE-04 | Phase 4 | Pending |
-| PROP-01 | Phase 4 | Pending |
-| PROP-02 | Phase 4 | Pending |
-| PRIC-01 | Phase 4 | Pending |
-| PRIC-02 | Phase 4 | Pending |
-| NEGO-01 | Phase 4 | Pending |
-| NEGO-02 | Phase 4 | Pending |
-| NEGO-03 | Phase 4 | Pending |
-| CONT-01 | Phase 5 | Pending |
-| CONT-02 | Phase 5 | Pending |
-| CONT-03 | Phase 5 | Pending |
-| FINA-01 | Phase 5 | Pending |
-| FINA-02 | Phase 5 | Pending |
-| FINA-03 | Phase 5 | Pending |
-| FINA-04 | Phase 5 | Pending |
-| PROJ-01 | Phase 6 | Pending |
-| PROJ-02 | Phase 6 | Pending |
-| PROJ-03 | Phase 6 | Pending |
-| PROJ-04 | Phase 6 | Pending |
-| MAINT-01 | Phase 7 | Pending |
-| MAINT-02 | Phase 7 | Pending |
-| GROW-01 | Phase 7 | Pending |
-| GROW-02 | Phase 7 | Pending |
+| DASH-03 | Phase 1 | Pending |
+| LEAD-01 | Phase 2 | Pending |
+| LEAD-02 | Phase 2 | Pending |
+| LEAD-03 | Phase 2 | Pending |
+| LEAD-04 | Phase 2 | Pending |
+| LEAD-05 | Phase 2 | Pending |
+| AUDT-01 | Phase 2 | Pending |
+| AUDT-02 | Phase 2 | Pending |
+| AUDT-03 | Phase 2 | Pending |
+| AUDT-04 | Phase 2 | Pending |
+| OPP-01 | Phase 2 | Pending |
+| OPP-02 | Phase 2 | Pending |
+| OPP-03 | Phase 2 | Pending |
+| SCOR-01 | Phase 2 | Pending |
+| SCOR-02 | Phase 2 | Pending |
+| SALE-01 | Phase 3 | Pending |
+| SALE-02 | Phase 3 | Pending |
+| SALE-03 | Phase 3 | Pending |
+| SALE-04 | Phase 3 | Pending |
+| PROP-01 | Phase 3 | Pending |
+| PROP-02 | Phase 3 | Pending |
+| PRIC-01 | Phase 3 | Pending |
+| PRIC-02 | Phase 3 | Pending |
+| NEGO-01 | Phase 3 | Pending |
+| NEGO-02 | Phase 3 | Pending |
+| NEGO-03 | Phase 3 | Pending |
+| CONT-01 | Phase 4 | Pending |
+| CONT-02 | Phase 4 | Pending |
+| CONT-03 | Phase 4 | Pending |
+| FINA-01 | Phase 4 | Pending |
+| FINA-02 | Phase 4 | Pending |
+| FINA-03 | Phase 4 | Pending |
+| FINA-04 | Phase 4 | Pending |
+| PROJ-01 | Phase 5 | Pending |
+| PROJ-02 | Phase 5 | Pending |
+| PROJ-03 | Phase 5 | Pending |
+| PROJ-04 | Phase 5 | Pending |
+| MAINT-01 | Phase 6 | Pending |
+| MAINT-02 | Phase 6 | Pending |
+| GROW-01 | Phase 6 | Pending |
+| GROW-02 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 57 total
-- Mapped to phases: 57
+- v1 requirements: 56 total
+- Mapped to phases: 56
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-08-04*
-*Last updated: 2026-08-04 after initial definition*
+*Last updated: 2026-08-04 after roadmap traceability assignment*
