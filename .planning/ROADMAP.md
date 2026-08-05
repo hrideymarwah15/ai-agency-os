@@ -68,8 +68,10 @@ Plans:
   2. Owner sees deduplicated, enriched leads (name, industry, website, email, phone, location, employees, reviews, ratings, tech stack) with source lineage — the same business from multiple sources appears exactly once
   3. Scraped content cannot inject instructions into agent prompts: ingestion sanitization keeps content out of instruction context and adversarial injection test fixtures pass
 
-**Plans**: TBD
+**Plans**: 1 plan (9 tasks, 3 waves)
 **UI hint**: yes
+Plans:
+- [ ] 02-PLAN.md — Collection → normalization → dedup → enrichment → metrics + pipeline dashboard (api_hosts exemption, run entity, 5 adapters, CMP-06 sanitization, outbox worker, scheduler enqueue, SSR pipeline view)
 
 ### Phase 02.1: Website Audits (INSERTED)
 
