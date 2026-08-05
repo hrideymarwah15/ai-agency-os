@@ -6,6 +6,7 @@ normalized, and idempotency-keyed as hn:{child_id}.
 
 import json
 from pathlib import Path
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import httpx
@@ -63,7 +64,7 @@ async def test_hn_adapter_yields_sanitized_normalized_candidates(
     assert first.raw["hn_id"] == 111
     assert first.raw["thread_id"] == "9999"
     assert first.raw["author"] == "acme-web-studio"
-    assert first.normalized["website"].endswith("example.com")
+    assert urlparse(first.normalized["website"]).hostname.endswith("example.com")
     assert first.normalized["name"] == "Acme Web Studio"
     assert first.normalized["location"] == "Remote (Worldwide)"
     assert {"name", "website", "location"} <= set(first.normalized)
@@ -91,6 +92,7 @@ async def test_hn_short_and_deleted_comments_rejected_not_candidates(
 
 async def test_hn_no_thread_yields_no_candidates(mock_transport, test_session) -> None:
     """Empty search hits — no thread, no ITEM fetch, zero candidates."""
+
     def handler(request: httpx.Request) -> httpx.Response:
         if "/items/" in request.url.path:
             return httpx.Response(200, json={"children": []})
@@ -119,7 +121,9 @@ async def test_hn_no_thread_yields_no_candidates(mock_transport, test_session) -
         '{"hits": [{"objectID": "1"}], "children": [{"id": 9}]}',
     ],
 )
-async def test_hn_malformed_payloads_never_crash(payload: str, mock_transport, test_session) -> None:
+async def test_hn_malformed_payloads_never_crash(
+    payload: str, mock_transport, test_session
+) -> None:
     """Hostile or malformed API payloads are contained — no exceptions escape."""
 
     def handler(request: httpx.Request) -> httpx.Response:
