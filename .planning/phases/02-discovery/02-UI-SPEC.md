@@ -1,7 +1,8 @@
 ---
 phase: 2
 slug: discovery
-status: draft
+status: approved
+reviewed_at: 2026-08-05
 shadcn_initialized: false
 preset: none
 created: 2026-08-05
@@ -74,7 +75,7 @@ Nav order (base.html): **Discovery · Approval Queue · Audit Log** — Discover
 | Body / table cells | 16px | 400 | 1.5 |
 | Label/caption (14px: badges, th, meta, muted notes, detail-list labels) | 14px | 400 | 1.4 |
 
-Exactly 2 weights: 400 + 600. Code-face exception (not part of the scale): run ID renders at 13px mono in the run expander — the Phase 1 `.mono-payload` face, used inline.
+Exactly 2 weights: 400 + 600. Code-face exception (not part of the scale): run ID renders as a plain 13px `font-family: var(--font-mono)` span (no `.mono-payload` block styling — new `.run-id` class).
 
 ---
 
