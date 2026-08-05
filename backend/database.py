@@ -147,6 +147,17 @@ class Business(Base):
     growth_signals: Mapped[list] = mapped_column(JSON, default=list)
     source: Mapped[str | None] = mapped_column(String(100), nullable=True)
     raw_data: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Discovery enrichment (LEAD-02) + dedup canonical keys (D-25)
+    rating: Mapped[Decimal | None] = mapped_column(Numeric(3, 1), nullable=True)
+    review_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_enriched_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    enrichment_version: Mapped[int] = mapped_column(Integer, default=1)
+    dedup_key_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    dedup_key_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    dedup_key_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    dedup_key_phone: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
@@ -156,6 +167,9 @@ class Business(Base):
         Index("ix_businesses_status", "status"),
         Index("ix_businesses_industry", "industry"),
         Index("ix_businesses_priority", "priority_score"),
+        Index("ix_businesses_dedup_key_domain", "dedup_key_domain"),
+        Index("ix_businesses_dedup_key_email", "dedup_key_email"),
+        Index("ix_businesses_dedup_key_phone", "dedup_key_phone"),
     )
 
 
@@ -457,6 +471,100 @@ class OutboxEvent(Base):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (Index("ix_outbox_events_status_next_run_at", "status", "next_run_at"),)
+
+
+# ============================================
+# Discovery Pipeline Models (D-28, D-24)
+# ============================================
+class RunStatus(str, enum.Enum):
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    PARTIAL = "PARTIAL"
+    FAILED = "FAILED"
+
+
+class SourceRunStatus(str, enum.Enum):
+    OK = "OK"
+    EMPTY = "EMPTY"
+    BLOCKED = "BLOCKED"
+    ERROR = "ERROR"
+    EXCLUDED = "EXCLUDED"
+    DISABLED = "DISABLED"
+
+
+class DiscoveryRun(Base):
+    """One discovery collection run (manual or scheduled trigger, D-28)."""
+
+    __tablename__ = "discovery_runs"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    trigger_source: Mapped[str] = mapped_column(String(20), nullable=False)  # MANUAL, SCHEDULER
+    status: Mapped[RunStatus] = mapped_column(SQLEnum(RunStatus), default=RunStatus.RUNNING)
+    correlation_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    total_candidates: Mapped[int] = mapped_column(Integer, default=0)
+
+    __table_args__ = (
+        Index("ix_discovery_runs_started_at", "started_at"),
+        Index("ix_discovery_runs_correlation_id", "correlation_id"),
+    )
+
+
+class DiscoveryRunSourceStat(Base):
+    """Per-source parse-success metrics for one run (LEAD-05; same-tx invariant)."""
+
+    __tablename__ = "discovery_run_source_stats"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    run_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("discovery_runs.id", ondelete="CASCADE")
+    )
+    source_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    status: Mapped[SourceRunStatus] = mapped_column(
+        SQLEnum(SourceRunStatus), default=SourceRunStatus.OK
+    )
+    requests_made: Mapped[int] = mapped_column(Integer, default=0)
+    found: Mapped[int] = mapped_column(Integer, default=0)
+    parsed_ok: Mapped[int] = mapped_column(Integer, default=0)
+    rejected: Mapped[int] = mapped_column(Integer, default=0)
+    new_count: Mapped[int] = mapped_column(Integer, default=0)
+    merged_count: Mapped[int] = mapped_column(Integer, default=0)
+    rejection_buckets: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+
+    __table_args__ = (
+        UniqueConstraint("run_id", "source_id", name="uq_discovery_run_source_stat_run_source"),
+    )
+
+
+class BusinessSourceRecord(Base):
+    """Lineage row: one candidate occurrence per (source, source_item_id) — D-24.
+
+    The (source_id, source_item_id) UNIQUE is the idempotency key: a re-run of
+    the same source item reuses the existing row, never duplicating lineage.
+    raw_payload is the sanitized, size-capped source payload — never raw HTML
+    (CMP-06).
+    """
+
+    __tablename__ = "business_source_records"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    business_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("businesses.id", ondelete="CASCADE")
+    )
+    run_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("discovery_runs.id"))
+    source_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    source_item_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    raw_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    sanitized_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)  # NEW, MERGED
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "source_id", "source_item_id", name="uq_business_source_record_source_item"
+        ),
+    )
 
 
 # ============================================

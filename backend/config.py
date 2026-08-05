@@ -148,6 +148,19 @@ class Settings(BaseSettings):
     # Mock Mode (D-20 — dev-only mock agent data, default off)
     mock_mode: bool = Field(default=False, alias="MOCK_MODE")
 
+    # Discovery Sources (D-21 — unconfigured sources are disabled; Reddit is
+    # live-excluded per LEAD-04 posture; Yelp/Google are key-gated)
+    source_hn_enabled: bool = Field(default=True, alias="SOURCE_HN_ENABLED")
+    source_reddit_enabled: bool = Field(default=False, alias="SOURCE_REDDIT_ENABLED")
+    source_yelp_enabled: bool = Field(default=False, alias="SOURCE_YELP_ENABLED")
+    source_google_places_enabled: bool = Field(default=False, alias="SOURCE_GOOGLE_PLACES_ENABLED")
+    source_mock_directory_enabled: bool = Field(
+        default=False, alias="SOURCE_MOCK_DIRECTORY_ENABLED"
+    )
+    discovery_max_items_per_source: int = Field(default=50, alias="DISCOVERY_MAX_ITEMS_PER_SOURCE")
+    yelp_api_key: str = Field(default="", alias="YELP_API_KEY")
+    google_places_api_key: str = Field(default="", alias="GOOGLE_PLACES_API_KEY")
+
     # Service Catalog
     service_catalog: dict = Field(
         default={

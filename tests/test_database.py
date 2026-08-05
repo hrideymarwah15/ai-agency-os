@@ -1,8 +1,10 @@
 """Database lifecycle tests — RuntimeError guard, URL.create engine, tz-aware and callable defaults."""
 
+
 import pytest
 
-from backend.database import Base, Business
+from backend.config import settings
+from backend.database import Base, Business, DiscoveryRun, DiscoveryRunSourceStat, RunStatus
 
 
 async def test_get_db_before_init_raises_runtime_error(monkeypatch):
@@ -62,7 +64,7 @@ def test_json_columns_use_callable_defaults():
     assert default(None) == {}
 
 
-def test_all_sixteen_tables_in_metadata():
+def test_all_nineteen_tables_in_metadata():
     names = set(Base.metadata.tables.keys())
     expected = {
         "businesses",
@@ -80,6 +82,43 @@ def test_all_sixteen_tables_in_metadata():
         "scheduler_heartbeats",
         "consent_records",
         "suppression_entries",
+        "outbox_events",
+        "discovery_runs",
+        "discovery_run_source_stats",
+        "business_source_records",
     }
-    assert len(names) == 16
+    assert len(names) == 19
     assert expected.issubset(names)
+
+
+def test_discovery_run_model_defaults():
+    from backend.database import BusinessSourceRecord, SourceRunStatus
+
+    run = DiscoveryRun(trigger_source="MANUAL", correlation_id="corr-1")
+    assert run.correlation_id == "corr-1"
+    status_default = DiscoveryRun.__table__.c.status.default.arg
+    assert status_default == RunStatus.RUNNING
+
+    stat_status_default = DiscoveryRunSourceStat.__table__.c.status.default.arg
+    assert stat_status_default == SourceRunStatus.OK
+
+    raw_default = BusinessSourceRecord.__table__.c.raw_payload.default.arg
+    assert raw_default is not None
+
+
+def test_business_dedup_key_columns_exist():
+    assert Business.__table__.c.dedup_key_domain is not None
+    assert Business.__table__.c.dedup_key_phone is not None
+    assert Business.__table__.c.rating is not None
+    assert Business.__table__.c.enrichment_version.default.arg == 1
+
+
+def test_discovery_config_flags_locked_defaults():
+    assert settings.source_hn_enabled is True
+    assert settings.source_reddit_enabled is False
+    assert settings.source_yelp_enabled is False
+    assert settings.source_google_places_enabled is False
+    assert settings.source_mock_directory_enabled is False
+    assert settings.discovery_max_items_per_source == 50
+    assert settings.yelp_api_key == ""
+    assert settings.google_places_api_key == ""
