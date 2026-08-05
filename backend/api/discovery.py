@@ -15,13 +15,15 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import config
 from backend.auth.owner import get_current_owner
 from backend.auth.session import clear_flash, read_flash, set_flash
 from backend.database import (
+    Business,
+    BusinessSourceRecord,
     DiscoveryRun,
     DiscoveryRunSourceStat,
     OutboxEvent,
@@ -30,21 +32,24 @@ from backend.database import (
     get_db,
 )
 from backend.services.audit import AuditService
+from backend.services.discovery import registry
 
 router = APIRouter(prefix="/discovery")
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
 
-# Registry order is locked with T05 (sources/{hn,reddit,yelp,google_places,
-# mock_directory}.py): this constant is the T03 stand-in; T09 wires the real
-# registry order into source_columns. UI-SPEC §Page Anatomy column order.
-_SOURCE_COLUMNS = [
-    {"source_id": "hn", "short_name": "HN", "display_name": "Hacker News"},
-    {"source_id": "reddit", "short_name": "Reddit", "display_name": "Reddit"},
-    {"source_id": "yelp", "short_name": "Yelp", "display_name": "Yelp"},
-    {"source_id": "google_places", "short_name": "G Maps", "display_name": "Google Maps"},
-    {"source_id": "mock_directory", "short_name": "Mock", "display_name": "Mock Directory"},
-]
+
+def _source_columns() -> list[dict[str, str]]:
+    """Registry-order source columns (T05) — drives the runs table + expanders.
+
+    UI-SPEC §Page Anatomy column order: hn, reddit, yelp, google_places,
+    mock_directory — the registry owns that order, not this module.
+    """
+    return [
+        {"source_id": source_id, "short_name": short_name, "display_name": display_name}
+        for source_id, _cls, _enabled, display_name, short_name in registry.all_sources()
+    ]
+
 
 _RUN_STATUS_LABELS = {
     RunStatus.RUNNING: "In progress",
@@ -120,6 +125,14 @@ def _source_view(column: dict[str, str], stat: DiscoveryRunSourceStat | None) ->
             "rejection_line": "—",
         }
     buckets = stat.rejection_buckets or {}
+    # JSONB round-trips lose dict insertion order (Postgres sorts keys) — render
+    # in a stable, deterministic order: count desc, reason asc (plan example:
+    # "missing_website 4 · too_short 2").
+    ordered_buckets = sorted(buckets.items(), key=lambda item: (-item[1], item[0]))
+    if stat.status in (SourceRunStatus.DISABLED, SourceRunStatus.EXCLUDED):
+        cell_display = "—"
+    else:
+        cell_display = f"{stat.parsed_ok}/{stat.found}"
     return {
         "source_id": column["source_id"],
         "display_name": column["display_name"],
@@ -131,17 +144,21 @@ def _source_view(column: dict[str, str], stat: DiscoveryRunSourceStat | None) ->
         "rejected": stat.rejected,
         "new_count": stat.new_count,
         "merged_count": stat.merged_count,
-        "cell_display": f"{stat.parsed_ok}/{stat.found}",
-        "rejection_line": " · ".join(f"{reason} {count}" for reason, count in buckets.items())
+        "cell_display": cell_display,
+        "rejection_line": " · ".join(f"{reason} {count}" for reason, count in ordered_buckets)
         or "—",
     }
 
 
-def _to_run_view(run: DiscoveryRun, stats: dict[str, DiscoveryRunSourceStat]) -> dict[str, Any]:
+def _to_run_view(
+    run: DiscoveryRun,
+    stats: dict[str, DiscoveryRunSourceStat],
+    columns: list[dict[str, str]],
+) -> dict[str, Any]:
     """Structured-only run view (T-03-01) — never the ORM row itself."""
     source_views: list[dict[str, Any]] = []
     totals: dict[str, int] = {"found": 0, "new": 0, "merged": 0}
-    for column in _SOURCE_COLUMNS:
+    for column in columns:
         view = _source_view(column, stats.get(column["source_id"]))
         source_views.append(view)
         totals["found"] += view["found"]
@@ -158,6 +175,99 @@ def _to_run_view(run: DiscoveryRun, stats: dict[str, DiscoveryRunSourceStat]) ->
         "totals": totals,
         "dedup_rate_display": _dedup_rate_display(totals["new"], totals["merged"]),
     }
+
+
+_ENRICHMENT_FIELD_COUNT = 10
+_ENRICHMENT_FIELDS = (
+    "name",
+    "industry",
+    "website_url",
+    "email",
+    "phone",
+    "location",
+    "employee_count",
+    "rating",
+    "review_count",
+    "tech_stack",
+)
+
+
+def _enrichment_display(business: Business) -> str:
+    """n/10 filled of the LEAD-02 field set (UI-SPEC §Leads table)."""
+    filled = sum(
+        1 for field in _ENRICHMENT_FIELDS if getattr(business, field) not in (None, [], "")
+    )
+    return f"{filled}/{_ENRICHMENT_FIELD_COUNT}"
+
+
+def _to_lead_view(
+    business: Business, found_at: datetime, lineage: list[dict[str, str]]
+) -> dict[str, Any]:
+    """Structured-only lead view (T-03-01) — every value pre-formatted."""
+    employees = business.employee_count
+    rating = business.rating
+    return {
+        "id": business.id,
+        "name": business.name,
+        "industry": business.industry or "—",
+        "location": business.location or "—",
+        "website_url": business.website_url or "—",
+        "email": business.email or "—",
+        "phone": business.phone or "—",
+        "employee_count_display": str(employees) if employees is not None else "—",
+        "rating_display": f"{rating:.1f}" if rating is not None else "—",
+        "review_count": business.review_count or "—",
+        "tech_stack": list(business.tech_stack or []),
+        "tech_stack_display": ", ".join(business.tech_stack or []),
+        "enrichment_display": _enrichment_display(business),
+        "found_date": _format_started(found_at),
+        "lineage": lineage,
+    }
+
+
+async def _lead_views(session: AsyncSession, columns: list[dict[str, str]]) -> list[dict[str, Any]]:
+    """Qualified leads (limit 20), newest first by first-discovered run.
+
+    Lineage badges list DISTINCT sources in registry order (UI-SPEC §Leads
+    table) — a business found by two sources renders two badges.
+    """
+    rows = (
+        await session.execute(
+            select(Business, func.min(DiscoveryRun.started_at).label("found_at"))
+            .join(BusinessSourceRecord, BusinessSourceRecord.business_id == Business.id)
+            .join(DiscoveryRun, DiscoveryRun.id == BusinessSourceRecord.run_id)
+            .group_by(Business.id)
+            .order_by(func.min(DiscoveryRun.started_at).desc())
+            .limit(20)
+        )
+    ).all()
+    ids = [business.id for business, _found_at in rows]
+    lineage_sets: dict[UUID, set[str]] = {}
+    if ids:
+        records = (
+            (
+                await session.execute(
+                    select(BusinessSourceRecord).where(BusinessSourceRecord.business_id.in_(ids))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for record in records:
+            lineage_sets.setdefault(record.business_id, set()).add(record.source_id)
+    short_names = {column["source_id"]: column["short_name"] for column in columns}
+    return [
+        _to_lead_view(
+            business,
+            found_at,
+            [
+                {"source_id": source_id, "short_name": short_names[source_id]}
+                for source_id in short_names
+                if source_id in lineage_sets.get(business.id, set())
+            ],
+        )
+        for business, found_at in rows
+    ]
 
 
 def _enabled_source_count() -> int:
@@ -207,14 +317,15 @@ async def discovery_page(
     for stat in stat_rows:
         stats_by_run.setdefault(stat.run_id, {})[stat.source_id] = stat
 
-    run_views = [_to_run_view(row, stats_by_run.get(row.id, {})) for row in run_rows]
+    columns = _source_columns()
+    run_views = [_to_run_view(row, stats_by_run.get(row.id, {}), columns) for row in run_rows]
 
     table_source_totals = [
         {
             "source_id": column["source_id"],
             "found": sum(s.found for s in stat_rows if s.source_id == column["source_id"]),
         }
-        for column in _SOURCE_COLUMNS
+        for column in columns
     ]
     table_totals = {
         "found": sum(s.found for s in stat_rows),
@@ -229,13 +340,13 @@ async def discovery_page(
         {
             "enabled_source_count": _enabled_source_count(),
             "runs": run_views,
-            "source_columns": _SOURCE_COLUMNS,
+            "source_columns": columns,
             "table_source_totals": table_source_totals,
             "table_totals": table_totals,
             "table_dedup_rate_display": _dedup_rate_display(
                 table_totals["new"], table_totals["merged"]
             ),
-            "leads": [],
+            "leads": await _lead_views(session, columns),
             "flash": flash,
             "agency_name": config.settings.agency_name,
             "owner_email": config.settings.owner_email,

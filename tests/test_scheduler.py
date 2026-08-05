@@ -86,8 +86,9 @@ async def test_job_error_listener_logs_via_loguru(loguru_sink, monkeypatch):
 @pytest.fixture
 def db_maker(test_engine, monkeypatch):
     """Point database.async_session_maker at the test engine (approvals pattern)."""
-    import backend.database as db
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    import backend.database as db
 
     maker = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
     monkeypatch.setattr(db, "async_session_maker", maker)
@@ -97,7 +98,12 @@ def db_maker(test_engine, monkeypatch):
 @pytest.fixture
 async def clean_discovery_outbox(test_session):
     """Empty the discovery/outbox tables so enqueue assertions are exact."""
-    from backend.database import BusinessSourceRecord, DiscoveryRun, DiscoveryRunSourceStat, OutboxEvent
+    from backend.database import (
+        BusinessSourceRecord,
+        DiscoveryRun,
+        DiscoveryRunSourceStat,
+        OutboxEvent,
+    )
 
     for model in (BusinessSourceRecord, DiscoveryRunSourceStat, DiscoveryRun, OutboxEvent):
         await test_session.execute(delete(model))

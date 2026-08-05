@@ -8,6 +8,7 @@ Authentication and Origin checks follow the approvals pattern (T-03-03).
 """
 
 import json
+from datetime import UTC, datetime, timedelta
 from urllib.parse import unquote
 
 import conftest
@@ -204,29 +205,49 @@ async def _seed_dashboard(test_session):
     test_session.add_all(
         [
             DiscoveryRunSourceStat(
-                run_id=run_a.id, source_id="hn", status=SourceRunStatus.OK,
-                requests_made=21, found=21, parsed_ok=15, rejected=6,
-                new_count=10, merged_count=5,
+                run_id=run_a.id,
+                source_id="hn",
+                status=SourceRunStatus.OK,
+                requests_made=21,
+                found=21,
+                parsed_ok=15,
+                rejected=6,
+                new_count=10,
+                merged_count=5,
                 rejection_buckets={"missing_website": 4, "too_short": 2},
             ),
             DiscoveryRunSourceStat(
-                run_id=run_a.id, source_id="reddit", status=SourceRunStatus.BLOCKED,
-                requests_made=1, rejected=1, rejection_buckets={"blocked": 1},
+                run_id=run_a.id,
+                source_id="reddit",
+                status=SourceRunStatus.BLOCKED,
+                requests_made=1,
+                rejected=1,
+                rejection_buckets={"blocked": 1},
             ),
             DiscoveryRunSourceStat(
                 run_id=run_a.id, source_id="yelp", status=SourceRunStatus.DISABLED
             ),
             DiscoveryRunSourceStat(
-                run_id=run_a.id, source_id="google_places", status=SourceRunStatus.ERROR,
-                requests_made=3, found=3, parsed_ok=1, rejected=2,
+                run_id=run_a.id,
+                source_id="google_places",
+                status=SourceRunStatus.ERROR,
+                requests_made=3,
+                found=3,
+                parsed_ok=1,
+                rejected=2,
                 rejection_buckets={"malformed": 2},
             ),
             DiscoveryRunSourceStat(
                 run_id=run_a.id, source_id="mock_directory", status=SourceRunStatus.DISABLED
             ),
             DiscoveryRunSourceStat(
-                run_id=run_b.id, source_id="hn", status=SourceRunStatus.OK,
-                found=2, parsed_ok=2, new_count=1, merged_count=1,
+                run_id=run_b.id,
+                source_id="hn",
+                status=SourceRunStatus.OK,
+                found=2,
+                parsed_ok=2,
+                new_count=1,
+                merged_count=1,
             ),
             DiscoveryRunSourceStat(
                 run_id=run_b.id, source_id="reddit", status=SourceRunStatus.DISABLED
@@ -265,20 +286,31 @@ async def _seed_dashboard(test_session):
     test_session.add_all(
         [
             BusinessSourceRecord(
-                business_id=lead_a.id, run_id=run_a.id, source_id="hn",
-                source_item_id="mock-hn:1", raw_payload={"mock": True},
+                business_id=lead_a.id,
+                run_id=run_a.id,
+                source_id="hn",
+                source_item_id="mock-hn:1",
+                raw_payload={"mock": True},
                 sanitized_text="Acme Web Studio | San Francisco | https://acme.example.com",
                 status="NEW",
             ),
             BusinessSourceRecord(
-                business_id=lead_a.id, run_id=run_a.id, source_id="mock_directory",
-                source_item_id="mock-dir:1", raw_payload={"mock": True},
-                sanitized_text="Acme Web Studio", status="MERGED",
+                business_id=lead_a.id,
+                run_id=run_a.id,
+                source_id="mock_directory",
+                source_item_id="mock-dir:1",
+                raw_payload={"mock": True},
+                sanitized_text="Acme Web Studio",
+                status="MERGED",
             ),
             BusinessSourceRecord(
-                business_id=lead_b.id, run_id=run_b.id, source_id="hn",
-                source_item_id="mock-hn:2", raw_payload={"mock": True},
-                sanitized_text="Globex Engineering", status="NEW",
+                business_id=lead_b.id,
+                run_id=run_b.id,
+                source_id="hn",
+                source_item_id="mock-hn:2",
+                raw_payload={"mock": True},
+                sanitized_text="Globex Engineering",
+                status="NEW",
             ),
         ]
     )
@@ -295,14 +327,14 @@ async def test_api_discovery_page_renders_metrics_and_leads_async(
     html = response.text
 
     # Per-source parsed/found cells: 12/15 (hn, run_a), 2/2 (hn, run_b), "—" for disabled.
-    assert "12/15" in html
+    assert "15/21" in html  # hn parsed/found (12/15 was the wrong ratio)
     assert "2/2" in html
     assert '<td class="num">—</td>' in html
 
     # tfoot totals: source-level found + Σ New/Merged + dedup rate 35% (6/17).
     import re
 
-    tfoot = re.search(r"<tfoot>.*?</tfoot>", html, re.S).group(0)
+    tfoot = re.search(r"<tfoot>.*?</tfoot>", html, re.DOTALL).group(0)
     assert "23" in tfoot  # hn found 21 + 2
     assert "11" in tfoot  # new 10 + 1
     assert "6" in tfoot  # merged 5 + 1
@@ -366,9 +398,7 @@ async def test_api_discovery_page_renders_dedup_dash_when_no_candidates(
     test_session.add(run)
     await test_session.flush()
     test_session.add(
-        DiscoveryRunSourceStat(
-            run_id=run.id, source_id="hn", status=SourceRunStatus.EMPTY
-        )
+        DiscoveryRunSourceStat(run_id=run.id, source_id="hn", status=SourceRunStatus.EMPTY)
     )
     await test_session.commit()
 
@@ -378,5 +408,5 @@ async def test_api_discovery_page_renders_dedup_dash_when_no_candidates(
     html = response.text
 
     assert "Dedup rate" not in html
-    tfoot = re.search(r"<tfoot>.*?</tfoot>", html, re.S).group(0)
+    tfoot = re.search(r"<tfoot>.*?</tfoot>", html, re.DOTALL).group(0)
     assert '<td class="num">—</td>' in tfoot
