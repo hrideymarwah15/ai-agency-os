@@ -9,26 +9,26 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Foundation
 
-- [ ] **FND-01**: Owner can run the backend as an installable Python package (`pip install -e .`) with the flat `backend/` package layout, `__init__.py` files, and a README that installs and runs it
-- [ ] **FND-02**: All declared dependencies in `pyproject.toml` are current (FastAPI, redis, supabase, playwright, httpx, langgraph 1.x, stripe 15.x, razorpay 2.x) with `sqlalchemy` added and a `uv.lock` committed
-- [ ] **FND-03**: Owner can run database migrations via Alembic (replaces `create_all`) against PostgreSQL/Supabase
+- [x] **FND-01**: Owner can run the backend as an installable Python package (`pip install -e .`) with the flat `backend/` package layout, `__init__.py` files, and a README that installs and runs it
+- [x] **FND-02**: All declared dependencies in `pyproject.toml` are current (FastAPI, redis, supabase, playwright, httpx, langgraph 1.x, stripe 15.x, razorpay 2.x) with `sqlalchemy` added and a `uv.lock` committed
+- [x] **FND-03**: Owner can run database migrations via Alembic (replaces `create_all`) against PostgreSQL/Supabase
 - [x] **FND-04**: Every AI agent action, decision, and external side effect is written to an append-only audit log with correlation IDs, queryable by lead/proposal/contract
 - [x] **FND-05**: Owner can view, approve, reject, or escalate every approval-gated action (contracts, payments, below-floor offers, legal changes) from an approval queue
-- [ ] **FND-06**: Owner can set spending/budget caps (per-provider LLM cost, per-outreach volume) that hard-block exceeding sends/calls
-- [ ] **FND-07**: Scheduled jobs run on a heartbeat-monitored scheduler that alerts on silent failures
+- [x] **FND-06**: Owner can set spending/budget caps (per-provider LLM cost, per-outreach volume) that hard-block exceeding sends/calls
+- [x] **FND-07**: Scheduled jobs run on a heartbeat-monitored scheduler that alerts on silent failures
 
 ### Compliance
 
-- [ ] **CMP-01**: Crawler fetches respect robots.txt (deny-by-default) before crawling any domain
-- [ ] **CMP-02**: Crawler rate-limits per domain with token-bucket throttling and jitter
-- [ ] **CMP-03**: Outreach is rate-limited and cannot exceed anti-spam volume caps per sender/domain
-- [ ] **CMP-04**: Outreach requires consent records or a documented lawful basis (India DPDP-aware) and one-click unsubscribe in every email
+- [x] **CMP-01**: Crawler fetches respect robots.txt (deny-by-default) before crawling any domain
+- [x] **CMP-02**: Crawler rate-limits per domain with token-bucket throttling and jitter
+- [x] **CMP-03**: Outreach is rate-limited and cannot exceed anti-spam volume caps per sender/domain
+- [x] **CMP-04**: Outreach requires consent records or a documented lawful basis (India DPDP-aware) and one-click unsubscribe in every email
 - [ ] **CMP-05**: Webhook ingestion (payments, delivery) is idempotent against replay (DB-level dedupe)
 - [ ] **CMP-06**: Prompt injection is mitigated at ingestion (scraped content sanitized, kept out of instruction context) with adversarial test fixtures
 
 ### Owner Dashboard
 
-- [ ] **DASH-01**: Owner can log in to a dashboard with session auth
+- [x] **DASH-01**: Owner can log in to a dashboard with session auth
 - [ ] **DASH-02**: Owner sees pipeline state: qualified leads, outreach status, proposals, contracts awaiting approval, active projects, MRR
 - [x] **DASH-03**: Owner can review and act on audit log entries and approval requests from the dashboard
 
@@ -153,20 +153,20 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FND-01 | Phase 1 | Pending |
-| FND-02 | Phase 1 | Pending |
-| FND-03 | Phase 1 | Pending |
+| FND-01 | Phase 1 | Complete |
+| FND-02 | Phase 1 | Complete |
+| FND-03 | Phase 1 | Complete |
 | FND-04 | Phase 1 | Complete |
 | FND-05 | Phase 1 | Complete |
-| FND-06 | Phase 1 | Pending |
-| FND-07 | Phase 1 | Pending |
-| CMP-01 | Phase 1 | Pending |
-| CMP-02 | Phase 1 | Pending |
-| CMP-03 | Phase 1 | Pending |
-| CMP-04 | Phase 1 | Pending |
+| FND-06 | Phase 1 | Complete |
+| FND-07 | Phase 1 | Complete |
+| CMP-01 | Phase 1 | Complete |
+| CMP-02 | Phase 1 | Complete |
+| CMP-03 | Phase 1 | Complete |
+| CMP-04 | Phase 1 | Complete |
 | CMP-05 | Phase 4 | Pending |
 | CMP-06 | Phase 2 | Pending |
-| DASH-01 | Phase 1 | Pending |
+| DASH-01 | Phase 1 | Complete |
 | DASH-02 | Phase 2 | Pending |
 | DASH-03 | Phase 1 | Complete |
 | LEAD-01 | Phase 2 | Pending |
