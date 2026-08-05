@@ -17,7 +17,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import database
-from backend.database import SchedulerHeartbeat
+from backend.database import DiscoveryRun, OutboxEvent, RunStatus, SchedulerHeartbeat
 from backend.services.approvals import expire_stale
 from backend.services.budget import prune_spend_rows
 from backend.workflows import get_ceo_review_graph
@@ -25,6 +25,7 @@ from backend.workflows import get_ceo_review_graph
 _HEARTBEAT_JOB_ID = "heartbeat"
 _SPEND_RESET_JOB_ID = "spend-window-reset"
 _APPROVAL_SWEEPER_JOB_ID = "approval-sweeper"
+_DISCOVERY_JOB_ID = "discovery-daily"
 _HEARTBEAT_INTERVAL_SECONDS = 30
 _APPROVAL_SWEEPER_INTERVAL_SECONDS = 60
 
@@ -93,6 +94,34 @@ async def _approval_sweeper_job() -> None:
         await expire_stale(session, graph, datetime.now(UTC))
 
 
+async def _discovery_daily_job() -> None:
+    """D-12 enqueue-only daily discovery: create the run + outbox event atomically.
+
+    The run row and its discovery.run outbox event commit together; the worker
+    (never this job) executes the pipeline (RESEARCH Pattern 2).
+    """
+    from uuid import uuid4
+
+    session_maker = database.async_session_maker
+    if session_maker is None:
+        raise RuntimeError("Database not initialized")
+    async with session_maker() as session:
+        run = DiscoveryRun(
+            trigger_source="SCHEDULER",
+            status=RunStatus.RUNNING,
+            correlation_id=str(uuid4()),
+        )
+        session.add(run)
+        await session.flush()
+        session.add(
+            OutboxEvent(
+                topic="discovery.run",
+                payload={"run_id": str(run.id), "correlation_id": run.correlation_id},
+            )
+        )
+        await session.commit()
+
+
 def _on_job_error(event: JobExecutionEvent) -> None:
     """D-12 silent-failure alert: any job exception reaches loguru."""
     logger.error(f"[scheduler] job failed: {event.job_id} — {event.exception!r}")
@@ -121,6 +150,14 @@ def build_scheduler() -> AsyncIOScheduler:
         _approval_sweeper_job,
         IntervalTrigger(seconds=_APPROVAL_SWEEPER_INTERVAL_SECONDS),
         id=_APPROVAL_SWEEPER_JOB_ID,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=60,
+    )
+    scheduler.add_job(
+        _discovery_daily_job,
+        CronTrigger(hour=0),
+        id=_DISCOVERY_JOB_ID,
         max_instances=1,
         coalesce=True,
         misfire_grace_time=60,
