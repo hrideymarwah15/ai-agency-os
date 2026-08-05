@@ -6,8 +6,6 @@ and run-granularity-only auditing. Every fetch flows through the MockTransport
 fast-client factory — nothing touches the real internet.
 """
 
-import time
-from datetime import UTC, datetime
 from uuid import uuid4
 
 import httpx
@@ -93,7 +91,9 @@ async def _stats(test_session, run_id):
 
 
 async def _audits(test_session, correlation_id: str):
-    result = await test_session.execute(select(AuditLog).where(AuditLog.correlation_id == correlation_id))
+    result = await test_session.execute(
+        select(AuditLog).where(AuditLog.correlation_id == correlation_id)
+    )
     return list(result.scalars().all())
 
 
@@ -107,16 +107,17 @@ async def test_manual_run_executes_with_same_tx_invariants(
 ):
     """End-to-end run: invariants hold without sleeps, audits stay run-granular."""
     run = await _seed_run(test_session)
+    run_id = run.id  # plain UUID — safe to use after expire_all()
 
     await execute_run(run.id, client_factory=fast_client_factory)
-    await test_session.expire_all()
+    test_session.expire_all()
 
-    run_row = await _run_row(test_session, run.id)
+    run_row = await _run_row(test_session, run_id)
     assert run_row.status == RunStatus.COMPLETED
     assert run_row.finished_at is not None
     assert run_row.total_candidates == 2  # MockHN yields exactly 2 posts
 
-    stats = await _stats(test_session, run.id)
+    stats = await _stats(test_session, run_id)
     assert stats["hn"].status == SourceRunStatus.OK
     assert stats["hn"].found == stats["hn"].parsed_ok + stats["hn"].rejected
     assert stats["hn"].new_count + stats["hn"].merged_count == stats["hn"].parsed_ok
@@ -149,14 +150,15 @@ async def test_all_disabled_sources_yield_completed_run_with_disabled_stats(
     ]
     monkeypatch.setattr(registry, "all_sources", lambda: entries)
     run = await _seed_run(test_session)
+    run_id = run.id  # plain UUID — safe to use after expire_all()
 
     await execute_run(run.id, client_factory=fast_client_factory)
-    await test_session.expire_all()
+    test_session.expire_all()
 
-    stats = await _stats(test_session, run.id)
+    stats = await _stats(test_session, run_id)
     assert len(stats) == 5
     assert all(stat.status == SourceRunStatus.DISABLED for stat in stats.values())
-    run_row = await _run_row(test_session, run.id)
+    run_row = await _run_row(test_session, run_id)
     assert run_row.status == RunStatus.COMPLETED
     assert run_row.total_candidates == 0
 
@@ -169,7 +171,7 @@ class _FlakySource(SourceAdapter):
     short_name = "flaky"
     api_hosts = frozenset({"flaky.example.com"})
 
-    def fetch_candidates(self, ctx):  # noqa: ANN001 — RunContext shape from base
+    async def fetch_candidates(self, ctx):  # ctx: RunContext — runner contract
         ctx.stat.record_request()
         request = httpx.Request("GET", "https://flaky.example.com/api")
         raise httpx.HTTPStatusError(
@@ -187,14 +189,15 @@ async def test_429_source_yields_partial_run_and_exclusion_audit(
     entries = list(registry.all_sources()) + [("flaky", _FlakySource, True, "Flaky", "flaky")]
     monkeypatch.setattr(registry, "all_sources", lambda: entries)
     run = await _seed_run(test_session)
+    run_id = run.id  # plain UUID — safe to use after expire_all()
 
     await execute_run(run.id, client_factory=fast_client_factory)
-    await test_session.expire_all()
+    test_session.expire_all()
 
-    run_row = await _run_row(test_session, run.id)
+    run_row = await _run_row(test_session, run_id)
     assert run_row.status == RunStatus.PARTIAL
 
-    stats = await _stats(test_session, run.id)
+    stats = await _stats(test_session, run_id)
     assert stats["flaky"].status == SourceRunStatus.BLOCKED
     assert stats["flaky"].requests_made == 1  # the source stops after the 429
     assert stats["flaky"].rejected == 1
@@ -202,7 +205,11 @@ async def test_429_source_yields_partial_run_and_exclusion_audit(
     assert stats["hn"].status == SourceRunStatus.OK  # other sources still attempted
 
     audits = await _audits(test_session, run.correlation_id)
-    assert {a.action for a in audits} == {"discovery_run_started", "source_excluded", "run_finished"}
+    assert {a.action for a in audits} == {
+        "discovery_run_started",
+        "source_excluded",
+        "run_finished",
+    }
     excluded = next(a for a in audits if a.action == "source_excluded")
     assert excluded.payload["source_id"] == "flaky"
     assert excluded.actor == "system"
@@ -214,13 +221,14 @@ async def test_max_items_per_source_cap_honored(
     """Runner stops ingesting a source after discovery_max_items_per_source."""
     monkeypatch.setattr(settings, "discovery_max_items_per_source", 1)
     run = await _seed_run(test_session)
+    run_id = run.id  # plain UUID — safe to use after expire_all()
 
     await execute_run(run.id, client_factory=fast_client_factory)
-    await test_session.expire_all()
+    test_session.expire_all()
 
-    stats = await _stats(test_session, run.id)
+    stats = await _stats(test_session, run_id)
     assert stats["hn"].new_count + stats["hn"].merged_count == 1
-    run_row = await _run_row(test_session, run.id)
+    run_row = await _run_row(test_session, run_id)
     assert run_row.total_candidates == 1
     assert run_row.status == RunStatus.COMPLETED
 
@@ -236,7 +244,7 @@ async def test_parse_error_source_records_rejection_bucket(
         short_name = "bad"
         api_hosts = frozenset()
 
-        def fetch_candidates(self, ctx):  # noqa: ANN001 — RunContext shape from base
+        async def fetch_candidates(self, ctx):  # ctx: RunContext — runner contract
             yield SourceCandidate(
                 source_id=self.source_id,
                 source_item_id="bad:1",
@@ -246,17 +254,16 @@ async def test_parse_error_source_records_rejection_bucket(
             )
             ctx.stat.reject(RejectReason.TOO_SHORT, item_id="bad:1")
 
-    entries = list(registry.all_sources()) + [
-        ("bad_source", _ParseErrorSource, True, "Bad", "bad")
-    ]
+    entries = list(registry.all_sources()) + [("bad_source", _ParseErrorSource, True, "Bad", "bad")]
     monkeypatch.setattr(registry, "all_sources", lambda: entries)
     run = await _seed_run(test_session)
+    run_id = run.id  # plain UUID — safe to use after expire_all()
 
     await execute_run(run.id, client_factory=fast_client_factory)
-    await test_session.expire_all()
+    test_session.expire_all()
 
-    stats = await _stats(test_session, run.id)
+    stats = await _stats(test_session, run_id)
     assert stats["bad_source"].rejected == 1
     assert stats["bad_source"].rejection_buckets == {"too_short": 1}
-    run_row = await _run_row(test_session, run.id)
+    run_row = await _run_row(test_session, run_id)
     assert run_row.status == RunStatus.COMPLETED  # per-item rejections don't fail the run

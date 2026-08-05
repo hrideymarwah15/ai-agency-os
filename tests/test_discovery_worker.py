@@ -31,6 +31,23 @@ def db_maker(test_engine, monkeypatch):
     return maker
 
 
+@pytest.fixture(autouse=True)
+async def clean_outbox(discovery_db, test_session):
+    """Worker tests own outbox_events: no leftovers from other tests.
+
+    discovery_db only truncates discovery tables — the worker drains the shared
+    outbox, so stale events from earlier tests would break the drain assertions.
+    (audit_logs is append-only by design — left alone.)
+    """
+    from sqlalchemy import delete
+
+    from backend.database import OutboxEvent
+
+    await test_session.execute(delete(OutboxEvent))
+    await test_session.commit()
+    yield
+
+
 @pytest.fixture
 def offline_enrich(monkeypatch):
     """Replace runner.enrich_homepage with a no-op for the worker tests."""
@@ -56,6 +73,9 @@ async def _seed_run_and_event(test_session, *, at: datetime) -> DiscoveryRun:
 
 
 async def _events(test_session):
+    # The worker commits through its own session — expire cached instances so
+    # this SELECT re-reads statuses from the DB instead of the identity map.
+    test_session.expire_all()
     result = await test_session.execute(select(OutboxEvent).order_by(OutboxEvent.created_at))
     return list(result.scalars().all())
 
@@ -68,7 +88,9 @@ async def _wait_until(test_session, predicate, timeout: float = 10.0):
         if predicate(rows):
             return rows
         await asyncio.sleep(_POLL)
-    raise AssertionError(f"condition not met within {timeout}s (events={rows!r})")
+    raise AssertionError(
+        f"condition not met within {timeout}s (events={[(r.status, r.last_error) for r in rows]!r})"
+    )
 
 
 async def test_worker_drains_events_serially_in_order(
@@ -78,25 +100,29 @@ async def test_worker_drains_events_serially_in_order(
     now = datetime.now(UTC)
     run_a = await _seed_run_and_event(test_session, at=now)
     run_b = await _seed_run_and_event(test_session, at=now + timedelta(seconds=1))
+    ids = [run_a.id, run_b.id]  # plain UUIDs — safe after expire_all() in _events
 
     task = asyncio.create_task(discovery_worker(poll_interval=_POLL))
     try:
-        rows = await _wait_until(test_session, lambda rows: len(rows) == 2 and all(r.status == "DONE" for r in rows))
+        rows = await _wait_until(
+            test_session, lambda rows: len(rows) == 2 and all(r.status == "DONE" for r in rows)
+        )
     finally:
         task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
 
-    assert rows[0].id == run_a.id or rows[0].payload["run_id"] == str(run_a.id)
+    assert rows[0].payload["run_id"] == str(ids[0])
     assert rows[0].processed_at is not None
     assert rows[0].processed_at <= rows[1].processed_at
     for row in rows:
         assert row.attempts >= 1
 
-    await test_session.expire_all()
     statuses = [
-        (await test_session.execute(select(DiscoveryRun).where(DiscoveryRun.id == r.id))).scalar_one()
-        for r in (run_a, run_b)
+        (
+            await test_session.execute(select(DiscoveryRun).where(DiscoveryRun.id == rid))
+        ).scalar_one()
+        for rid in ids
     ]
     assert [s.status for s in statuses] == [RunStatus.COMPLETED, RunStatus.COMPLETED]
 

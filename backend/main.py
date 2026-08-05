@@ -28,6 +28,7 @@ from backend.api import auth as auth_api
 from backend.api import discovery as discovery_api
 from backend.api import unsubscribe as unsubscribe_api
 from backend.auth.session import set_flash
+from backend.services.discovery.worker import discovery_worker
 from backend.services.scheduler import build_scheduler, write_heartbeat
 
 if TYPE_CHECKING:
@@ -76,7 +77,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if session_maker is not None:
         async with session_maker() as session:
             await write_heartbeat(session, job_name="startup")
+    # T07: durable outbox worker for discovery runs (serial, cancellable — D-12).
+    worker_task = asyncio.create_task(discovery_worker())
     yield
+    worker_task.cancel()
+    await asyncio.gather(worker_task, return_exceptions=True)
     scheduler.shutdown(wait=False)
     await database.close_db()
 
