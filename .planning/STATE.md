@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1 UI-SPEC approved
-last_updated: "2026-08-04T20:26:55.090Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-08-05T07:30:00.071Z"
 last_activity: 2026-08-04 -- Phase 01 execution started
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 0
-  percent: 0
+  completed_plans: 5
+  percent: 17
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 01 (foundation-orchestration-core) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 01
+Plan: 2 of 5
+Status: Ready to execute
 Last activity: 2026-08-04 -- Phase 01 execution started
 
 Progress: [░░░░░░░░░░] 0%
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01-foundation-orchestration-core P01-03 | 548 | 3 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,11 @@ Recent decisions affecting current work:
 - [Roadmap]: Dashboard split by delivery boundary — DASH-01 (auth) + DASH-03 (approval/audit actions) in Phase 1; DASH-02 (pipeline state) in Phase 2 where first real pipeline data exists
 - [Roadmap]: Compliance distributed per research — CMP-01..04 middleware in Phase 1, CMP-06 injection boundary in Phase 2 (ingestion begins), CMP-05 webhook idempotency in Phase 4 (webhooks first arrive)
 - [Roadmap]: Scope corrections embedded per research — 3-5 lead sources (not 15+), INP not FID, negotiation guardrail-first (draft-and-escalate)
+- [Phase 01-foundation-orchestration-core]: LangGraph v3 async resume: astream_events(Command(resume=...), version='v3') + await stream.output()
+- [Phase 01-foundation-orchestration-core]: Workflow registry keyed per event loop; AsyncExitStack keeps the saver's async CM alive (GC'd CM closes the connection)
+- [Phase 01-foundation-orchestration-core]: Flash cookies are percent-encoded JSON envelopes (RFC 6265 ASCII; unquote+json.loads restores exact UI-SPEC copy)
+- [Phase 01-foundation-orchestration-core]: Approval expiry default 172800s; 60s sweeper rejects with timeout reason
+- [Phase 01-foundation-orchestration-core]: Login landing page is /approvals per UI-SPEC (supersedes /audit)
 
 ### Pending Todos
 
@@ -93,6 +99,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-04T19:38:11.283Z
-Stopped at: Phase 1 UI-SPEC approved
-Resume file: .planning/phases/01-foundation-orchestration-core/1-UI-SPEC.md
+Last session: 2026-08-05T07:30:00.065Z
+Stopped at: Completed 01-03-PLAN.md
+Resume file: None

@@ -12,8 +12,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **FND-01**: Owner can run the backend as an installable Python package (`pip install -e .`) with the flat `backend/` package layout, `__init__.py` files, and a README that installs and runs it
 - [ ] **FND-02**: All declared dependencies in `pyproject.toml` are current (FastAPI, redis, supabase, playwright, httpx, langgraph 1.x, stripe 15.x, razorpay 2.x) with `sqlalchemy` added and a `uv.lock` committed
 - [ ] **FND-03**: Owner can run database migrations via Alembic (replaces `create_all`) against PostgreSQL/Supabase
-- [ ] **FND-04**: Every AI agent action, decision, and external side effect is written to an append-only audit log with correlation IDs, queryable by lead/proposal/contract
-- [ ] **FND-05**: Owner can view, approve, reject, or escalate every approval-gated action (contracts, payments, below-floor offers, legal changes) from an approval queue
+- [x] **FND-04**: Every AI agent action, decision, and external side effect is written to an append-only audit log with correlation IDs, queryable by lead/proposal/contract
+- [x] **FND-05**: Owner can view, approve, reject, or escalate every approval-gated action (contracts, payments, below-floor offers, legal changes) from an approval queue
 - [ ] **FND-06**: Owner can set spending/budget caps (per-provider LLM cost, per-outreach volume) that hard-block exceeding sends/calls
 - [ ] **FND-07**: Scheduled jobs run on a heartbeat-monitored scheduler that alerts on silent failures
 
@@ -30,7 +30,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **DASH-01**: Owner can log in to a dashboard with session auth
 - [ ] **DASH-02**: Owner sees pipeline state: qualified leads, outreach status, proposals, contracts awaiting approval, active projects, MRR
-- [ ] **DASH-03**: Owner can review and act on audit log entries and approval requests from the dashboard
+- [x] **DASH-03**: Owner can review and act on audit log entries and approval requests from the dashboard
 
 ### Lead Discovery
 
@@ -156,8 +156,8 @@ Deferred to future release. Tracked but not in current roadmap.
 | FND-01 | Phase 1 | Pending |
 | FND-02 | Phase 1 | Pending |
 | FND-03 | Phase 1 | Pending |
-| FND-04 | Phase 1 | Pending |
-| FND-05 | Phase 1 | Pending |
+| FND-04 | Phase 1 | Complete |
+| FND-05 | Phase 1 | Complete |
 | FND-06 | Phase 1 | Pending |
 | FND-07 | Phase 1 | Pending |
 | CMP-01 | Phase 1 | Pending |
@@ -168,7 +168,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | CMP-06 | Phase 2 | Pending |
 | DASH-01 | Phase 1 | Pending |
 | DASH-02 | Phase 2 | Pending |
-| DASH-03 | Phase 1 | Pending |
+| DASH-03 | Phase 1 | Complete |
 | LEAD-01 | Phase 2 | Pending |
 | LEAD-02 | Phase 2 | Pending |
 | LEAD-03 | Phase 2 | Pending |
@@ -211,6 +211,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | GROW-02 | Phase 6 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 56 total
 - Mapped to phases: 56
 - Unmapped: 0 ✓

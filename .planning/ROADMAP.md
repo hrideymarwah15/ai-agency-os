@@ -54,7 +54,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-03-PLAN.md — Approval engine capstone: LangGraph interrupt gate over CEO/LeadHunter, approval queue UI, sweeper
+- [x] 01-03-PLAN.md — Approval engine capstone: LangGraph interrupt gate over CEO/LeadHunter, approval queue UI, sweeper
 
 ### Phase 2: Discovery
 
