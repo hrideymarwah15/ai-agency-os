@@ -14,7 +14,7 @@ From a broken Python skeleton to a self-operating agency pipeline. Phase 1 repai
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Orchestration Core** - Repairs (package/deps/migrations), compliance middleware, audit log, budget caps, scheduler, LangGraph approval gate, owner login + approval queue (completed 2026-08-05)
-- [ ] **Phase 2: Discovery** - Compliant lead collection, website intelligence, opportunity detection, lead scoring, pipeline view
+- [x] **Phase 2: Discovery** - Compliant lead collection, website intelligence, opportunity detection, lead scoring, pipeline view (completed 2026-08-05)
 - [ ] **Phase 3: Sales** - Pricing engine, guardrailed negotiation, outreach sequences, proposal generator
 - [ ] **Phase 4: Legal + Finance** - Approval-gated contracts/NDA/invoices, idempotent payments, finance dashboard
 - [ ] **Phase 5: Delivery** - Contract-to-project, QA-gated deliverables, deployment with auto-config
@@ -71,7 +71,8 @@ Plans:
 **Plans**: 1 plan (9 tasks, 3 waves)
 **UI hint**: yes
 Plans:
-- [ ] 02-PLAN.md — Collection → normalization → dedup → enrichment → metrics + pipeline dashboard (api_hosts exemption, run entity, 5 adapters, CMP-06 sanitization, outbox worker, scheduler enqueue, SSR pipeline view)
+
+- [x] 02-PLAN.md — Collection → normalization → dedup → enrichment → metrics + pipeline dashboard (api_hosts exemption, run entity, 5 adapters, CMP-06 sanitization, outbox worker, scheduler enqueue, SSR pipeline view)
 
 ### Phase 02.1: Website Audits (INSERTED)
 
@@ -171,7 +172,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Orchestration Core | 5/5 | Complete    | 2026-08-05 |
-| 2. Discovery | 0/TBD | Not started | - |
+| 2. Discovery | 1/1 | Complete   | 2026-08-05 |
 | 3. Sales | 0/TBD | Not started | - |
 | 4. Legal + Finance | 0/TBD | Not started | - |
 | 5. Delivery | 0/TBD | Not started | - |

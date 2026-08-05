@@ -24,21 +24,21 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CMP-03**: Outreach is rate-limited and cannot exceed anti-spam volume caps per sender/domain
 - [x] **CMP-04**: Outreach requires consent records or a documented lawful basis (India DPDP-aware) and one-click unsubscribe in every email
 - [ ] **CMP-05**: Webhook ingestion (payments, delivery) is idempotent against replay (DB-level dedupe)
-- [ ] **CMP-06**: Prompt injection is mitigated at ingestion (scraped content sanitized, kept out of instruction context) with adversarial test fixtures
+- [x] **CMP-06**: Prompt injection is mitigated at ingestion (scraped content sanitized, kept out of instruction context) with adversarial test fixtures
 
 ### Owner Dashboard
 
 - [x] **DASH-01**: Owner can log in to a dashboard with session auth
-- [ ] **DASH-02**: Owner sees pipeline state: qualified leads, outreach status, proposals, contracts awaiting approval, active projects, MRR
+- [x] **DASH-02**: Owner sees pipeline state: qualified leads, outreach status, proposals, contracts awaiting approval, active projects, MRR
 - [x] **DASH-03**: Owner can review and act on audit log entries and approval requests from the dashboard
 
 ### Lead Discovery
 
-- [ ] **LEAD-01**: System collects business candidates from 3-5 high-yield compliant sources (e.g. Google Maps API/search, JustDial, Reddit/Indie Hackers/HN, job boards) with per-source rate limiting
-- [ ] **LEAD-02**: System enriches each lead with business data: name, industry, website, email, phone, location, employees, reviews, ratings, tech stack
-- [ ] **LEAD-03**: System deduplicates leads across sources (same business merged once)
-- [ ] **LEAD-04**: System excludes platforms/businesses that block automated collection (no ToS-violating scraping)
-- [ ] **LEAD-05**: Owner can run discovery on demand (manual trigger) and see per-run parse-success metrics
+- [x] **LEAD-01**: System collects business candidates from 3-5 high-yield compliant sources (e.g. Google Maps API/search, JustDial, Reddit/Indie Hackers/HN, job boards) with per-source rate limiting
+- [x] **LEAD-02**: System enriches each lead with business data: name, industry, website, email, phone, location, employees, reviews, ratings, tech stack
+- [x] **LEAD-03**: System deduplicates leads across sources (same business merged once)
+- [x] **LEAD-04**: System excludes platforms/businesses that block automated collection (no ToS-violating scraping)
+- [x] **LEAD-05**: Owner can run discovery on demand (manual trigger) and see per-run parse-success metrics
 
 ### Website Intelligence
 
@@ -165,15 +165,15 @@ Deferred to future release. Tracked but not in current roadmap.
 | CMP-03 | Phase 1 | Complete |
 | CMP-04 | Phase 1 | Complete |
 | CMP-05 | Phase 4 | Pending |
-| CMP-06 | Phase 2 | Pending |
+| CMP-06 | Phase 2 | Complete |
 | DASH-01 | Phase 1 | Complete |
-| DASH-02 | Phase 2 | Pending |
+| DASH-02 | Phase 2 | Complete |
 | DASH-03 | Phase 1 | Complete |
-| LEAD-01 | Phase 2 | Pending |
-| LEAD-02 | Phase 2 | Pending |
-| LEAD-03 | Phase 2 | Pending |
-| LEAD-04 | Phase 2 | Pending |
-| LEAD-05 | Phase 2 | Pending |
+| LEAD-01 | Phase 2 | Complete |
+| LEAD-02 | Phase 2 | Complete |
+| LEAD-03 | Phase 2 | Complete |
+| LEAD-04 | Phase 2 | Complete |
+| LEAD-05 | Phase 2 | Complete |
 | AUDT-01 | Phase 02.1 | Pending |
 | AUDT-02 | Phase 02.1 | Pending |
 | AUDT-03 | Phase 02.1 | Pending |

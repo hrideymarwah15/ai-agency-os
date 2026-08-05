@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
+status: completed
 stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-08-05T07:45:51.961Z"
+last_updated: "2026-08-05T09:42:34.971Z"
 last_activity: 2026-08-05
 progress:
   total_phases: 8
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
-  percent: 14
+  completed_phases: 2
+  total_plans: 6
+  completed_plans: 6
+  percent: 25
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 2
-Plan: Not started
-Status: Ready to execute
+Plan: 1/1
+Status: Completed
 Last activity: 2026-08-05
 
 Progress: [░░░░░░░░░░] 0%
@@ -59,6 +59,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01-foundation-orchestration-core P01-03 | 548 | 3 tasks | 19 files |
+| Phase 02-discovery P01 | 9h20m | - tasks | - files |
 
 ## Accumulated Context
 
@@ -76,6 +77,11 @@ Recent decisions affecting current work:
 - [Phase 01-foundation-orchestration-core]: Flash cookies are percent-encoded JSON envelopes (RFC 6265 ASCII; unquote+json.loads restores exact UI-SPEC copy)
 - [Phase 01-foundation-orchestration-core]: Approval expiry default 172800s; 60s sweeper rejects with timeout reason
 - [Phase 01-foundation-orchestration-core]: Login landing page is /approvals per UI-SPEC (supersedes /audit)
+- [Phase ?]: fetch_candidates declared as plain def (mypy async-generator constraint)
+- [Phase ?]: execute_run client_factory test seam; production default builds compliant client from adapter.api_hosts
+- [Phase ?]: run.total_candidates = sum(new+merged); dedup_rate percent or em-dash when no candidates
+- [Phase ?]: BLOCKED sources stop for the run and write source_excluded audit (LEAD-04)
+- [Phase ?]: JSONB loses dict order — rejection bucket lines sorted count-desc/reason-asc
 
 ### Pending Todos
 
@@ -100,6 +106,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-05T07:30:00.065Z
+Last session: 2026-08-05T09:41:59.315Z
 Stopped at: Completed 01-03-PLAN.md
 Resume file: None
