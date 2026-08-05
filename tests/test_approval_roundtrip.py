@@ -36,8 +36,9 @@ async def clean_approval_tables(test_session):
 @pytest.fixture
 def app_session_maker(test_engine, monkeypatch):
     """Point the module-level session maker at the test engine (graph nodes + service)."""
-    import backend.database as db
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    import backend.database as db
 
     maker = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
     monkeypatch.setattr(db, "async_session_maker", maker)

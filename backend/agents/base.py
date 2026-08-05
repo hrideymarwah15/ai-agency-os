@@ -63,6 +63,7 @@ class AgentContext:
     proposal_id: str | None = None
     contract_id: str | None = None
     project_id: str | None = None
+    correlation_id: str | None = None  # D-07: one run shares one audit correlation_id
     metadata: dict[str, Any] = field(default_factory=dict)
     conversation_history: list[dict] = field(default_factory=list)
 

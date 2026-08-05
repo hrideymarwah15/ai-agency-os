@@ -127,6 +127,8 @@ class Settings(BaseSettings):
     daily_outreach_limit: int = Field(default=25, alias="DAILY_OUTREACH_LIMIT")
     audit_batch_size: int = Field(default=5, alias="AUDIT_BATCH_SIZE")
     maintenance_check_hour: int = Field(default=3, alias="MAINTENANCE_CHECK_HOUR")
+    # T-03-06: PENDING approval requests expire after this many seconds (sweeper auto-rejects).
+    approval_expiry_seconds: int = Field(default=172800, alias="APPROVAL_EXPIRY_SECONDS")
 
     # Owner Auth (D-16 — single owner seeded from env; all required)
     session_secret: str = Field(alias="SESSION_SECRET")
