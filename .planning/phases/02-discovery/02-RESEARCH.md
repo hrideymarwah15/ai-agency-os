@@ -451,10 +451,10 @@ async def trigger_discovery(request: Request, _owner: str = Depends(get_current_
 
 ## Open Questions
 
-1. **API-host robots exemption (Q1 — must be confirmed in discuss-phase):** the Phase 1 deny-by-default policy blocks hn.algolia.com (404 robots) and api.yelp.com (disallow-all). We know: exemption set default-empty keeps Phase 1 behavior; token bucket still applies. What's unclear: whether the user accepts extending D-13/D-15 for documented API hosts. Recommendation: accept with the strict rule (API paths only + audit + terms URL per source); reject → HN/Yelp adapters become excluded and the slice ships mock-only live, failing LEAD-01's "collects from sources" intent.
-2. **Reddit adapter posture:** implement as live-excluded fixture (recommended — satisfies LEAD-04 with real evidence) vs drop entirely. If dropped, the exclusion fixture must be a mock (weakens the demo). Recommendation: keep as excluded-live adapter.
-3. **Yelp/Google key-gated adapters:** implement adapter + mock now (recommended) vs defer entirely to backlog. Recommendation: implement now — they're cheap with mocks and satisfy the "3-5 sources" contract.
-4. **Enrichment homepage scan scope:** confirm email/phone/form-URL-only (recommended; tech detection → 02.1). Risk: plan creep into AUDT territory.
+1. **(RESOLVED → D-31)** **API-host robots exemption (Q1):** the Phase 1 deny-by-default policy blocks hn.algolia.com (404 robots) and api.yelp.com (disallow-all). We know: exemption set default-empty keeps Phase 1 behavior; token bucket still applies. What's unclear: whether the user accepts extending D-13/D-15 for documented API hosts. Recommendation: accept with the strict rule (API paths only + audit + terms URL per source); reject → HN/Yelp adapters become excluded and the slice ships mock-only live, failing LEAD-01's "collects from sources" intent.
+2. **(RESOLVED)** **Reddit adapter posture:** implement as live-excluded fixture (recommended — satisfies LEAD-04 with real evidence) vs drop entirely. If dropped, the exclusion fixture must be a mock (weakens the demo). Recommendation: keep as excluded-live adapter.
+3. **(RESOLVED)** **Yelp/Google key-gated adapters:** implement adapter + mock now (recommended) vs defer entirely to backlog. Recommendation: implement now — they're cheap with mocks and satisfy the "3-5 sources" contract.
+4. **(RESOLVED)** **Enrichment homepage scan scope:** confirm email/phone/form-URL-only (recommended; tech detection → 02.1). Risk: plan creep into AUDT territory.
 
 ## Environment Availability
 

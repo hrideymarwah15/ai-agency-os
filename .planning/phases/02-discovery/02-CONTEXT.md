@@ -66,6 +66,13 @@ are separate SPIDR slices: Phase 02.1 and Phase 02.2. Do NOT plan them here.
 - **D-30:** Playwright re-added (D-04) ONLY in Phase 02.1 for JS-rendered audits — not in
   this slice; HTML parsing uses stdlib/BeautifulSoup-class tooling, no browser dependency.
 
+### Robots Exemption for Documented API Hosts (D-13/D-15 extension)
+- **D-31:** `RobotsPolicy` gains an `api_hosts: frozenset[str] = frozenset()` exemption set,
+  threaded through `build_compliant_client()`; exempt hosts bypass robots.txt (governed by
+  API terms, live-verified: hn.algolia.com robots.txt 404 → deny-by-default blocks it) with
+  exactly ONE `api_source_exempt` audit per host; default ∅ preserves deny-by-default and
+  the 89 existing tests. Only adapter-declared hosts may be added. (RESEARCH Q1 — resolved.)
+
 </decisions>
 
 <canonical_refs>
