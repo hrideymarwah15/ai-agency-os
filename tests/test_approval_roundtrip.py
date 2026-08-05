@@ -211,7 +211,9 @@ async def test_approve_resumes_and_completes(
     fresh = (
         await test_session.execute(select(ApprovalRequest).where(ApprovalRequest.id == row.id))
     ).scalar_one()
-    await test_session.refresh(fresh)  # app commits via its own session — reload the stale identity-map entry
+    await test_session.refresh(
+        fresh
+    )  # app commits via its own session — reload the stale identity-map entry
     assert fresh.status == ApprovalStatus.APPROVED
 
     # The resume completed the run: final graph state is "approved".
@@ -261,7 +263,9 @@ async def test_reject_halts_with_reason(
     fresh = (
         await test_session.execute(select(ApprovalRequest).where(ApprovalRequest.id == row.id))
     ).scalar_one()
-    await test_session.refresh(fresh)  # app commits via its own session — reload the stale identity-map entry
+    await test_session.refresh(
+        fresh
+    )  # app commits via its own session — reload the stale identity-map entry
     assert fresh.status == ApprovalStatus.REJECTED
     assert fresh.decision_reason == "Budget does not fit"
 
@@ -378,7 +382,9 @@ async def test_interrupt_not_swallowed(
     assert snapshot.next == ("gate",)
 
     # A resume that is not an explicit approve must not proceed (deterministic routing).
-    final = await graph.ainvoke(Command(resume={"decision": "maybe", "reason": "unsure"}), config=config)
+    final = await graph.ainvoke(
+        Command(resume={"decision": "maybe", "reason": "unsure"}), config=config
+    )
     assert final.get("status") == "rejected"
 
 
@@ -400,12 +406,16 @@ async def test_api_approve_returns_302_with_flash(
         response = client.post(f"/approvals/{row.id}/approve")
         assert response.status_code == 302
         assert response.headers["location"] == "/approvals"
-        assert "Approved — Apex Dental Clinic. The agent workflow has resumed." in _flash_message(response)
+        assert "Approved — Apex Dental Clinic. The agent workflow has resumed." in _flash_message(
+            response
+        )
 
     fresh = (
         await test_session.execute(select(ApprovalRequest).where(ApprovalRequest.id == row.id))
     ).scalar_one()
-    await test_session.refresh(fresh)  # app commits via its own session — reload the stale identity-map entry
+    await test_session.refresh(
+        fresh
+    )  # app commits via its own session — reload the stale identity-map entry
     assert fresh.status == ApprovalStatus.APPROVED
     assert fresh.decided_at is not None
 
@@ -433,14 +443,20 @@ async def test_api_reject_requires_reason_and_halts(
         ).scalar_one()
         assert still.status == ApprovalStatus.PENDING  # failed reject changed nothing
 
-        response = client.post(f"/approvals/{row.id}/reject", data={"reason": "Budget does not fit"})
+        response = client.post(
+            f"/approvals/{row.id}/reject", data={"reason": "Budget does not fit"}
+        )
         assert response.status_code == 302
-        assert "Rejected — Apex Dental Clinic. The workflow has been halted." in _flash_message(response)
+        assert "Rejected — Apex Dental Clinic. The workflow has been halted." in _flash_message(
+            response
+        )
 
     fresh = (
         await test_session.execute(select(ApprovalRequest).where(ApprovalRequest.id == row.id))
     ).scalar_one()
-    await test_session.refresh(fresh)  # app commits via its own session — reload the stale identity-map entry
+    await test_session.refresh(
+        fresh
+    )  # app commits via its own session — reload the stale identity-map entry
     assert fresh.status == ApprovalStatus.REJECTED
     assert fresh.decision_reason == "Budget does not fit"
 
@@ -466,7 +482,9 @@ async def test_api_escalate_flags_row(
     fresh = (
         await test_session.execute(select(ApprovalRequest).where(ApprovalRequest.id == row.id))
     ).scalar_one()
-    await test_session.refresh(fresh)  # app commits via its own session — reload the stale identity-map entry
+    await test_session.refresh(
+        fresh
+    )  # app commits via its own session — reload the stale identity-map entry
     assert fresh.status == ApprovalStatus.ESCALATED
 
 
@@ -487,7 +505,9 @@ async def test_api_mismatched_origin_gets_403(
     fresh = (
         await test_session.execute(select(ApprovalRequest).where(ApprovalRequest.id == row.id))
     ).scalar_one()
-    await test_session.refresh(fresh)  # app commits via its own session — reload the stale identity-map entry
+    await test_session.refresh(
+        fresh
+    )  # app commits via its own session — reload the stale identity-map entry
     assert fresh.status == ApprovalStatus.PENDING  # the action never ran
 
 

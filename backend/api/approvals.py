@@ -165,7 +165,9 @@ async def act_on_request(
                 request,
                 "approvals.html",
                 {
-                    "requests": [_to_view(r) for r in await approvals_service.list_requests(session)],
+                    "requests": [
+                        _to_view(r) for r in await approvals_service.list_requests(session)
+                    ],
                     "pending_count": await _pending_count(session),
                     "demo_enabled": config.settings.mock_mode,
                     "flash": flash,
