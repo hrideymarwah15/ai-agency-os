@@ -4,6 +4,10 @@ No other module issues outbound GETs — Phase 2's crawler routes through
 build_compliant_client(). A denied robots.txt raises RobotsDeniedError BEFORE
 any request is issued (T-05-01), and per-domain throttling comes from the
 shared token bucket (CMP-02).
+
+D-31: documented-API hosts passed via api_hosts bypass robots.txt (API terms
+govern them) but still flow through the per-domain token bucket. Default ∅
+preserves Phase 1 deny-by-default behavior.
 """
 
 from urllib.parse import urlparse
@@ -51,8 +55,13 @@ def build_compliant_client(
     client: httpx.AsyncClient | None = None,
     *,
     session: AsyncSession | None = None,
+    api_hosts: frozenset[str] = frozenset(),
 ) -> CompliantHTTPClient:
-    """Wire settings into a CompliantHTTPClient sharing one bucket across factories."""
+    """Wire settings into a CompliantHTTPClient sharing one bucket across factories.
+
+    api_hosts (D-31) lists documented-API hosts exempt from robots.txt — the
+    token bucket still applies to them. Default empty set = Phase 1 behavior.
+    """
     global _shared_bucket
     inner = client if client is not None else httpx.AsyncClient(timeout=60.0)
     if _shared_bucket is None:
@@ -65,5 +74,6 @@ def build_compliant_client(
         user_agent=settings.crawler_user_agent,
         ttl_seconds=settings.robots_cache_ttl_seconds,
         session=session,
+        api_hosts=api_hosts,
     )
     return CompliantHTTPClient(inner, bucket=_shared_bucket, policy=policy)

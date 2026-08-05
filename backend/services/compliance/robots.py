@@ -4,6 +4,11 @@ robotparser is the D-13 lock (stdlib); reppy 0.4.14 is the documented hardening
 path if real-world robots.txt breaks parsing — not needed now. Any fetch or
 parse failure denies the fetch (T-05-05) and is audited when a session is
 available.
+
+D-31: hosts listed in api_hosts bypass robots.txt entirely (documented public
+API terms govern them, not robots — e.g. hn.algolia.com has no robots.txt and
+would be denied by default). The token bucket still applies in the fetch
+pipeline. Each exempt host is audited once per policy instance.
 """
 
 import time
@@ -27,11 +32,16 @@ class RobotsPolicy:
         user_agent: str,
         ttl_seconds: int,
         session: AsyncSession | None = None,
+        api_hosts: frozenset[str] = frozenset(),
     ) -> None:
         self._client = client
         self._user_agent = user_agent
         self._ttl_seconds = ttl_seconds
         self._session = session
+        # D-31: documented-API hosts exempt from robots (API terms govern).
+        self._api_hosts = api_hosts
+        # Hosts already exemption-audited in this policy instance (once per host).
+        self._audited_api_hosts: set[str] = set()
         # domain -> (cached_at, parser); parser is None when the fetch failed.
         self._cache: dict[str, tuple[float, RobotFileParser | None]] = {}
 
@@ -39,6 +49,9 @@ class RobotsPolicy:
         """True only when the (cached) robots.txt allows url for our user agent."""
         parsed = urlparse(url)
         host = parsed.hostname or ""
+        if host in self._api_hosts:
+            await self._audit_api_exempt_once(host)
+            return True
         now = time.monotonic()
         cached = self._cache.get(host)
         if cached is not None and now - cached[0] < self._ttl_seconds:
@@ -78,5 +91,22 @@ class RobotsPolicy:
             entity_type="domain",
             entity_id=host,
             payload={"reason": "robots.txt fetch or parse failed"},
+        )
+        await self._session.commit()
+
+    async def _audit_api_exempt_once(self, host: str) -> None:
+        """D-31: audit one api_source_exempt row per host per policy instance."""
+        if host in self._audited_api_hosts:
+            return
+        self._audited_api_hosts.add(host)
+        if self._session is None:
+            return
+        await AuditService.record(
+            self._session,
+            actor="system",
+            action="api_source_exempt",
+            entity_type="domain",
+            entity_id=host,
+            payload={"governance": "documented public API terms (D-31)"},
         )
         await self._session.commit()
