@@ -94,9 +94,7 @@ async def test_api_run_rejects_cross_origin(migrated_db, discovery_db):
     """T-03-03 defense-in-depth: a cross-origin mutating POST gets 403."""
     with _client() as client:
         assert _login(client).status_code == 302
-        response = client.post(
-            "/discovery/run", headers={"origin": "https://evil.example"}
-        )
+        response = client.post("/discovery/run", headers={"origin": "https://evil.example"})
 
     assert response.status_code == 403
 
@@ -123,7 +121,14 @@ async def test_api_run_creates_run_outbox_audit(migrated_db, discovery_db):
     assert run.status == RunStatus.RUNNING
     assert run.correlation_id and len(run.correlation_id) <= 64
 
-    events = (await discovery_db.execute(select(OutboxEvent))).scalars().all()
+    # Run-scoped assertions: the persistent test DB accumulates rows across
+    # runs (audit_logs is append-only by DB trigger), so filter by the run's
+    # own correlation_id / run_id — leftovers from earlier runs never match.
+    events = [
+        event
+        for event in (await discovery_db.execute(select(OutboxEvent))).scalars().all()
+        if event.topic == "discovery.run" and event.payload.get("run_id") == str(run.id)
+    ]
     assert len(events) == 1
     event = events[0]
     assert event.topic == "discovery.run"
@@ -131,10 +136,17 @@ async def test_api_run_creates_run_outbox_audit(migrated_db, discovery_db):
     assert event.payload["correlation_id"] == run.correlation_id
 
     audits = (
-        await discovery_db.execute(
-            select(AuditLog).where(AuditLog.action == "discovery_triggered")
+        (
+            await discovery_db.execute(
+                select(AuditLog).where(
+                    AuditLog.action == "discovery_triggered",
+                    AuditLog.correlation_id == run.correlation_id,
+                )
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(audits) == 1
     audit = audits[0]
     assert audit.actor == "owner"
@@ -144,9 +156,7 @@ async def test_api_run_creates_run_outbox_audit(migrated_db, discovery_db):
     assert audit.correlation_id == run.correlation_id
 
 
-async def test_api_discovery_page_renders_empty_state(
-    migrated_db, discovery_db, zero_sources
-):
+async def test_api_discovery_page_renders_empty_state(migrated_db, discovery_db, zero_sources):
     """Logged-in GET /discovery: 200 with the runs empty state, zero-sources
     banner, Run discovery button, and the Discovery nav link active."""
     with _client() as client:
@@ -156,9 +166,7 @@ async def test_api_discovery_page_renders_empty_state(
     assert response.status_code == 200
     assert EMPTY_RUNS_COPY in response.text
     assert ZERO_SOURCES_COPY in response.text
-    assert 'href="/discovery" class="nav-link nav-link--active">Discovery</a>' in (
-        response.text
-    )
+    assert 'href="/discovery" class="nav-link nav-link--active">Discovery</a>' in (response.text)
     # The button is inside a POST form to the trigger route.
     assert 'action="/discovery/run"' in response.text
     assert "Run discovery" in response.text

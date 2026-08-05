@@ -25,6 +25,7 @@ from backend import database
 from backend.api import approvals as approvals_api
 from backend.api import audit as audit_api
 from backend.api import auth as auth_api
+from backend.api import discovery as discovery_api
 from backend.api import unsubscribe as unsubscribe_api
 from backend.auth.session import set_flash
 from backend.services.scheduler import build_scheduler, write_heartbeat
@@ -89,6 +90,7 @@ app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), na
 app.include_router(auth_api.router)
 app.include_router(approvals_api.router)
 app.include_router(audit_api.router)
+app.include_router(discovery_api.router)
 # Public by design (CMP-04): no Depends(get_current_owner) on the unsubscribe route.
 app.include_router(unsubscribe_api.router)
 

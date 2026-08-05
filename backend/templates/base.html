@@ -13,6 +13,7 @@
     <div class="nav__inner">
       <span class="nav__brand">{{ agency_name }}</span>
       <div class="nav__links">
+        <a href="/discovery" class="nav-link{% if active_page == 'discovery' %} nav-link--active{% endif %}">Discovery</a>
         <a href="/approvals" class="nav-link{% if active_page == 'approvals' %} nav-link--active{% endif %}">
           Approval Queue{% if pending_count and pending_count > 0 %}<span class="nav-badge">{{ pending_count }}</span>{% endif %}
         </a>

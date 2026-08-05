@@ -315,3 +315,53 @@ a { color: var(--accent); }
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* ── Phase 2 delta (02-UI-SPEC §Component Specs — tokens only, no restyles) ── */
+
+:root {
+  /* RunStatus RUNNING pair — the only new token pair (02-UI-SPEC §Color).
+     blue-700/blue-100, contrast ≈ 5.5:1 on the tint; accent stays badge-free. */
+  --blue-text: #1D4ED8;
+  --blue-bg: #DBEAFE;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Semantic badge aliases — same pairs as the Phase 1 status badges. */
+.badge--running { color: var(--blue-text); background: var(--blue-bg); }
+.badge--complete { color: var(--green-text); background: var(--green-bg); }
+.badge--partial { color: var(--amber-text); background: var(--amber-bg); }
+.badge--failed { color: var(--red-text); background: var(--red-bg); }
+.badge--ok { color: var(--green-text); background: var(--green-bg); }
+.badge--empty { color: var(--amber-text); background: var(--amber-bg); }
+.badge--blocked { color: var(--red-text); background: var(--red-bg); }
+.badge--error { color: var(--violet-text); background: var(--violet-bg); }
+.badge--excluded { color: var(--slate-text); background: var(--slate-bg); }
+.badge--disabled { color: var(--slate-text); background: var(--slate-bg); }
+.badge--source { color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); }
+
+.banner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--amber-text);
+  color: var(--text);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-lg);
+}
+
+/* Page-layout helpers for §Page Anatomy — token reuse only, no new decisions. */
+.action-row { display: flex; align-items: center; gap: var(--space-md); margin-bottom: var(--space-lg); }
+.action-note { margin: 0; font-size: var(--text-xs); color: var(--text-muted); }
+.section { margin-bottom: var(--space-xl); }
+.section-title { font-size: var(--text-md); font-weight: 600; margin: 0 0 var(--space-md); }
+.table-note { margin: var(--space-sm) 0 0; font-size: var(--text-xs); color: var(--text-muted); }
+.run-id { font-family: var(--font-mono); font-size: 13px; }
+.bucket-line { display: block; font-size: var(--text-xs); color: var(--text-muted); }

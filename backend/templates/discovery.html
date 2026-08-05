@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Discovery — AI Agency OS{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Discovery</h1>
+  <p>Pipeline state for lead discovery: run history, per-source parse metrics, and qualified leads.</p>
+</header>
+<div class="action-row">
+  <form method="post" action="/discovery/run">
+    <button type="submit" class="btn btn-primary">Run discovery</button>
+  </form>
+  <p class="action-note">Queued runs execute in order.</p>
+</div>
+{% if enabled_source_count == 0 %}
+<div class="banner" role="status">No discovery sources are enabled. Enable at least one source in configuration (for example <code>SOURCE_HN_ENABLED</code>) to collect leads.</div>
+{% endif %}
+{% if runs %}
+<section class="section">
+  <h2 class="section-title">Recent runs</h2>
+  <div class="table-scroll">
+    <table class="table" aria-label="Discovery run history">
+      <thead>
+        <tr>
+          <th scope="col">Started</th>
+          <th scope="col">Trigger</th>
+          <th scope="col">Status</th>
+          {% for column in source_columns %}
+          <th scope="col">{{ column.short_name }}</th>
+          {% endfor %}
+          <th scope="col">New</th>
+          <th scope="col">Merged</th>
+          <th scope="col">Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for run in runs %}
+        <tr>
+          <th scope="row">{{ run.started_at }}</th>
+          <td><span class="badge badge--action">{{ run.trigger_label }}</span></td>
+          <td><span class="badge badge--{{ run.status|lower }}">{{ run.status_label }}</span></td>
+          {% for source in run.sources %}
+          <td class="num">{{ source.cell_display }}</td>
+          {% endfor %}
+          <td class="num">{{ run.totals.new }}</td>
+          <td class="num">{{ run.totals.merged }}</td>
+          <td class="num">{{ run.duration_display }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">Totals</th>
+          <td></td>
+          <td></td>
+          {% for source in table_source_totals %}
+          <td class="num">{{ source.found }}</td>
+          {% endfor %}
+          <td class="num">{{ table_totals.new }}</td>
+          <td class="num">{{ table_totals.merged }}</td>
+          <td class="num">{{ table_dedup_rate_display }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <p class="table-note">Showing the most recent 10 runs.</p>
+  {% for run in runs %}
+  <details class="queue-details">
+    <summary>Source details</summary>
+    <p class="run-id">{{ run.id }}</p>
+    <div class="table-scroll">
+      <table class="table" aria-label="Source statistics">
+        <thead>
+          <tr>
+            <th scope="col">Source</th>
+            <th scope="col">Status</th>
+            <th scope="col">Requests</th>
+            <th scope="col">Found</th>
+            <th scope="col">Parsed OK</th>
+            <th scope="col">Rejected</th>
+            <th scope="col">New</th>
+            <th scope="col">Merged</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for source in run.sources %}
+          <tr>
+            <th scope="row">{{ source.display_name }}</th>
+            <td>
+              {% if source.status %}
+              <span class="badge badge--{{ source.status|lower }}">{{ source.status_label }}</span>
+              {% else %}
+              —
+              {% endif %}
+            </td>
+            <td class="num">{{ source.requests_made }}</td>
+            <td class="num">{{ source.found }}</td>
+            <td class="num">{{ source.parsed_ok }}</td>
+            <td class="num">{{ source.rejected }}<span class="bucket-line">{{ source.rejection_line }}</span></td>
+            <td class="num">{{ source.new_count }}</td>
+            <td class="num">{{ source.merged_count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endfor %}
+</section>
+<section class="section">
+  <h2 class="section-title">Qualified leads</h2>
+  {# T09: leads table (Name/Industry/Location/lineage badges/Enrichment/Found/Details). #}
+  <div class="empty-state">
+    <h2>No qualified leads yet</h2>
+    <p>Leads appear here once runs complete and candidates pass normalization, deduplication, and enrichment.</p>
+  </div>
+  <p class="table-note">Showing the most recent 20 leads. The full lead list arrives with the Next.js dashboard.</p>
+</section>
+{% else %}
+<div class="empty-state">
+  <h2>No discovery runs yet</h2>
+  <p>Trigger a run to start collecting business leads from compliant sources. Per-source metrics and qualified leads will appear here.</p>
+</div>
+{% endif %}
+{% endblock %}
