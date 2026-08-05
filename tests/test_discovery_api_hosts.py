@@ -99,7 +99,7 @@ async def test_build_compliant_client_api_hosts_fetch_succeeds(mock_transport):
     )
     response = await client.fetch("https://hn.algolia.com/api/v1/search_by_date?tags=story")
     assert response.status_code == 200
-    assert calls == ["/search_by_date"]  # robots.txt never requested for the exempt host
+    assert calls == ["/api/v1/search_by_date"]  # robots.txt never requested for the exempt host
 
 
 async def test_build_compliant_client_default_empty_still_denies(mock_transport):
