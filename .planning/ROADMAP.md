@@ -58,17 +58,41 @@ Plans:
 
 ### Phase 2: Discovery
 
-**Goal**: The system finds, enriches, audits, and qualifies real business leads from compliant sources, detects ROI-quantified opportunities, scores them into a priority queue, and the owner sees the resulting pipeline state in the dashboard — with scraped content kept out of instruction context at ingestion.
+**Goal**: As the agency owner, I want to trigger discovery runs that collect, deduplicate, and enrich business leads from compliant sources with per-run parse-success metrics, so that I can see qualified pipeline state in the dashboard with scraped content kept out of agent instruction context.
 **Mode:** mvp
 **Depends on**: Phase 1
-**Requirements**: LEAD-01, LEAD-02, LEAD-03, LEAD-04, LEAD-05, AUDT-01, AUDT-02, AUDT-03, AUDT-04, OPP-01, OPP-02, OPP-03, SCOR-01, SCOR-02, DASH-02, CMP-06
+**Requirements**: LEAD-01, LEAD-02, LEAD-03, LEAD-04, LEAD-05, DASH-02, CMP-06
 **Success Criteria** (what must be TRUE):
 
   1. Owner can trigger discovery on demand and see per-run parse-success metrics per source; runs collect candidates from 3-5 compliant sources with per-source rate limiting, and platforms/businesses that block automated collection are excluded, not scraped
   2. Owner sees deduplicated, enriched leads (name, industry, website, email, phone, location, employees, reviews, ratings, tech stack) with source lineage — the same business from multiple sources appears exactly once
-  3. Owner can view a website audit per lead (performance, accessibility, SEO, mobile with INP-based Core Web Vitals; tech stack, CMS, hosting, analytics; broken links and missing forms) with timestamped history
-  4. Owner sees each lead's detected automation and AI opportunities with ROI estimates, ranked, plus a weighted 0-100 lead score and priority ordering — surfaced in the dashboard pipeline view
-  5. Scraped content cannot inject instructions into agent prompts: ingestion sanitization keeps content out of instruction context and adversarial injection test fixtures pass
+  3. Scraped content cannot inject instructions into agent prompts: ingestion sanitization keeps content out of instruction context and adversarial injection test fixtures pass
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 02.1: Website Audits (INSERTED)
+
+**Goal**: As the agency owner, I want to audit each lead's website for performance, accessibility, SEO, and mobile scores with tech stack and conversion-flow insights, so that I can assess lead quality from a timestamped audit history.
+**Mode:** mvp
+**Depends on**: Phase 2
+**Requirements**: AUDT-01, AUDT-02, AUDT-03, AUDT-04
+**Success Criteria** (what must be TRUE):
+
+  1. Owner can view a website audit per lead (performance, accessibility, SEO, mobile with INP-based Core Web Vitals; tech stack, CMS, hosting, analytics; broken links and missing forms) with timestamped history
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 02.2: Opportunities and Scoring (INSERTED)
+
+**Goal**: As the agency owner, I want each lead ranked with detected automation and AI opportunities, ROI estimates, and a weighted 0-100 score, so that I can work the priority queue of qualified leads in the sales pipeline.
+**Mode:** mvp
+**Depends on**: Phase 02.1
+**Requirements**: OPP-01, OPP-02, OPP-03, SCOR-01, SCOR-02
+**Success Criteria** (what must be TRUE):
+
+  1. Owner sees each lead's detected automation and AI opportunities with ROI estimates, ranked, plus a weighted 0-100 lead score and priority ordering — surfaced in the dashboard pipeline view
 
 **Plans**: TBD
 **UI hint**: yes
