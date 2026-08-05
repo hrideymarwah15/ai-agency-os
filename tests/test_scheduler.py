@@ -81,3 +81,67 @@ async def test_job_error_listener_logs_via_loguru(loguru_sink, monkeypatch):
 
     # loguru callable sinks receive Message (a str subclass) — substring match suffices.
     assert any("[scheduler] job failed" in record for record in loguru_sink)
+
+
+@pytest.fixture
+def db_maker(test_engine, monkeypatch):
+    """Point database.async_session_maker at the test engine (approvals pattern)."""
+    import backend.database as db
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    maker = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+    monkeypatch.setattr(db, "async_session_maker", maker)
+    return maker
+
+
+@pytest.fixture
+async def clean_discovery_outbox(test_session):
+    """Empty the discovery/outbox tables so enqueue assertions are exact."""
+    from backend.database import BusinessSourceRecord, DiscoveryRun, DiscoveryRunSourceStat, OutboxEvent
+
+    for model in (BusinessSourceRecord, DiscoveryRunSourceStat, DiscoveryRun, OutboxEvent):
+        await test_session.execute(delete(model))
+    await test_session.commit()
+    yield
+
+
+async def test_discovery_daily_job_enqueues_run_and_event(
+    migrated_db, db_maker, clean_discovery_outbox, test_session
+):
+    """_discovery_daily_job() enqueues exactly one run + one outbox event (D-12)."""
+    from backend.database import DiscoveryRun, OutboxEvent, RunStatus
+    from backend.services.scheduler import _discovery_daily_job
+
+    await _discovery_daily_job()
+
+    runs = (await test_session.execute(select(DiscoveryRun))).scalars().all()
+    assert len(runs) == 1
+    run = runs[0]
+    assert run.trigger_source == "SCHEDULER"
+    assert run.status == RunStatus.RUNNING
+    assert run.correlation_id
+
+    events = (await test_session.execute(select(OutboxEvent))).scalars().all()
+    assert len(events) == 1
+    event = events[0]
+    assert event.topic == "discovery.run"
+    assert event.status == "PENDING"
+    assert event.payload["run_id"] == str(run.id)
+    assert event.payload["correlation_id"] == run.correlation_id
+
+
+def test_build_scheduler_registers_discovery_daily_job():
+    """discovery-daily is a CronTrigger(hour=0) job, guarded like the reset job."""
+    from apscheduler.triggers.cron import CronTrigger
+
+    from backend.services.scheduler import build_scheduler
+
+    scheduler = build_scheduler()
+    job = scheduler.get_job("discovery-daily")
+    assert job is not None
+    assert job.max_instances == 1
+    assert job.coalesce is True
+    assert job.misfire_grace_time == 60
+    assert isinstance(job.trigger, CronTrigger)
+    hour_field = next(f for f in job.trigger.fields if f.name == "hour")
+    assert [str(expr) for expr in hour_field.expressions] == ["0"]
