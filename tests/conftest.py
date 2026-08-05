@@ -120,3 +120,23 @@ def mock_transport():
         return httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
     return build
+
+
+@pytest.fixture
+async def discovery_db(test_session):
+    """Clean the discovery pipeline tables the run/worker/api tests write to."""
+    from sqlalchemy import delete
+
+    from backend.database import (
+        Business,
+        BusinessSourceRecord,
+        DiscoveryRun,
+        DiscoveryRunSourceStat,
+    )
+
+    await test_session.execute(delete(BusinessSourceRecord))
+    await test_session.execute(delete(DiscoveryRunSourceStat))
+    await test_session.execute(delete(DiscoveryRun))
+    await test_session.execute(delete(Business))
+    await test_session.commit()
+    yield test_session
