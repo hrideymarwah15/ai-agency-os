@@ -9,12 +9,31 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
-from backend.database import Business, BusinessSourceRecord
+from backend.database import (
+    Business,
+    BusinessSourceRecord,
+    DiscoveryRun,
+    RunStatus,
+)
 from backend.services.discovery.base import SourceCandidate
 from backend.services.discovery.dedup import dedup_rate, ingest_candidate, names_match
 
 
-def _candidate(source_id: str, item_id: str, *, name: str, website=None, phone=None) -> SourceCandidate:
+async def _make_run(session) -> DiscoveryRun:
+    """A real run row — business_source_records.run_id is FK'd to discovery_runs."""
+    run = DiscoveryRun(
+        trigger_source="TEST",
+        status=RunStatus.RUNNING,
+        correlation_id=f"corr-{uuid4().hex[:8]}",
+    )
+    session.add(run)
+    await session.flush()
+    return run
+
+
+def _candidate(
+    source_id: str, item_id: str, *, name: str, website=None, phone=None
+) -> SourceCandidate:
     """Candidate with the unified normalized shape adapters produce."""
     normalized = {
         "name": name,
@@ -43,12 +62,17 @@ async def _lineages(session) -> list[BusinessSourceRecord]:
 
 async def test_same_domain_merges_with_both_lineages(migrated_db, discovery_db) -> None:
     """Two adapters, different names, same domain → one master, two lineage rows."""
-    run_id = uuid4()
+    run = await _make_run(discovery_db)
+    run_id = run.id
     master_a, status_a = await ingest_candidate(
-        discovery_db, _candidate("mock_a", "a:1", name="Acme Tech Pvt. Ltd.", website="https://acme.example.com"), run_id=run_id
+        discovery_db,
+        _candidate("mock_a", "a:1", name="Acme Tech Pvt. Ltd.", website="https://acme.example.com"),
+        run_id=run_id,
     )
     master_b, status_b = await ingest_candidate(
-        discovery_db, _candidate("mock_b", "b:1", name="Acme Tech", website="https://acme.example.com"), run_id=run_id
+        discovery_db,
+        _candidate("mock_b", "b:1", name="Acme Tech", website="https://acme.example.com"),
+        run_id=run_id,
     )
     await discovery_db.commit()
 
@@ -65,15 +89,28 @@ async def test_same_domain_merges_with_both_lineages(migrated_db, discovery_db) 
 
 async def test_exact_phone_merges(migrated_db, discovery_db) -> None:
     """Same phone digits (different formatting) → merged, canonical phone key used."""
-    run_id = uuid4()
+    run = await _make_run(discovery_db)
+    run_id = run.id
     _, status_a = await ingest_candidate(
         discovery_db,
-        _candidate("mock_a", "a:1", name="Rapid Web Co", website="https://rapid.example.com", phone="+1 (415) 555-0132"),
+        _candidate(
+            "mock_a",
+            "a:1",
+            name="Rapid Web Co",
+            website="https://rapid.example.com",
+            phone="+1 (415) 555-0132",
+        ),
         run_id=run_id,
     )
     master_b, status_b = await ingest_candidate(
         discovery_db,
-        _candidate("mock_b", "b:1", name="Rapid Web Company", website="https://rapid2.example.com", phone="415-555-0132"),
+        _candidate(
+            "mock_b",
+            "b:1",
+            name="Rapid Web Company",
+            website="https://rapid2.example.com",
+            phone="+1-415-555-0132",
+        ),
         run_id=run_id,
     )
     await discovery_db.commit()
@@ -85,12 +122,29 @@ async def test_exact_phone_merges(migrated_db, discovery_db) -> None:
 
 async def test_same_name_different_domains_phones_no_false_merge(migrated_db, discovery_db) -> None:
     """A shared name alone never merges (no corroboration) — two masters."""
-    run_id = uuid4()
+    run = await _make_run(discovery_db)
+    run_id = run.id
     master_a, status_a = await ingest_candidate(
-        discovery_db, _candidate("mock_a", "a:1", name="Acme Tech", website="https://acme.example.com", phone="1112223333"), run_id=run_id
+        discovery_db,
+        _candidate(
+            "mock_a",
+            "a:1",
+            name="Acme Tech",
+            website="https://acme.example.com",
+            phone="1112223333",
+        ),
+        run_id=run_id,
     )
     master_b, status_b = await ingest_candidate(
-        discovery_db, _candidate("mock_b", "b:1", name="Acme Tech", website="https://acme2.example.com", phone="4445556666"), run_id=run_id
+        discovery_db,
+        _candidate(
+            "mock_b",
+            "b:1",
+            name="Acme Tech",
+            website="https://acme2.example.com",
+            phone="4445556666",
+        ),
+        run_id=run_id,
     )
     await discovery_db.commit()
 
@@ -103,13 +157,28 @@ async def test_same_name_different_domains_phones_no_false_merge(migrated_db, di
 
 async def test_fuzzy_merge_with_corroboration(migrated_db, discovery_db) -> None:
     """Near-identical names + corroborating phone → merged via the fuzzy pass."""
-    run_id = uuid4()
+    run = await _make_run(discovery_db)
+    run_id = run.id
     _, status_a = await ingest_candidate(
-        discovery_db, _candidate("mock_a", "a:1", name="Blue Whale Studio", website="https://blue.example.com", phone="1112223333"), run_id=run_id
-    )
-    master_b, status_b = await ingest_candidate(
         discovery_db,
-        _candidate("mock_b", "b:1", name="Blue Whale Studios", website="https://blue2.example.com", phone="1112223333"),
+        _candidate(
+            "mock_a",
+            "a:1",
+            name="Blue Whale Studio",
+            website="https://blue.example.com",
+            phone="1112223333",
+        ),
+        run_id=run_id,
+    )
+    _master_b, status_b = await ingest_candidate(
+        discovery_db,
+        _candidate(
+            "mock_b",
+            "b:1",
+            name="Blue Whale Studios",
+            website="https://blue2.example.com",
+            phone="1112223333",
+        ),
         run_id=run_id,
     )
     await discovery_db.commit()
@@ -123,12 +192,29 @@ async def test_fuzzy_merge_with_corroboration(migrated_db, discovery_db) -> None
 
 async def test_below_threshold_name_no_merge(migrated_db, discovery_db) -> None:
     """Dissimilar names + no corroboration → never merged."""
-    run_id = uuid4()
+    run = await _make_run(discovery_db)
+    run_id = run.id
     master_a, status_a = await ingest_candidate(
-        discovery_db, _candidate("mock_a", "a:1", name="Acme Tech", website="https://acme.example.com", phone="1112223333"), run_id=run_id
+        discovery_db,
+        _candidate(
+            "mock_a",
+            "a:1",
+            name="Acme Tech",
+            website="https://acme.example.com",
+            phone="1112223333",
+        ),
+        run_id=run_id,
     )
     master_b, status_b = await ingest_candidate(
-        discovery_db, _candidate("mock_b", "b:1", name="Acme Web Works", website="https://acme2.example.com", phone="4445556666"), run_id=run_id
+        discovery_db,
+        _candidate(
+            "mock_b",
+            "b:1",
+            name="Acme Web Works",
+            website="https://acme2.example.com",
+            phone="4445556666",
+        ),
+        run_id=run_id,
     )
     await discovery_db.commit()
 
@@ -140,7 +226,8 @@ async def test_below_threshold_name_no_merge(migrated_db, discovery_db) -> None:
 
 async def test_rerun_reuses_lineage_row(migrated_db, discovery_db) -> None:
     """Re-running the same (source_id, source_item_id) never duplicates lineage."""
-    run_id = uuid4()
+    run = await _make_run(discovery_db)
+    run_id = run.id
     candidate = _candidate("mock_a", "a:1", name="Acme Tech", website="https://acme.example.com")
     master_a, status_first = await ingest_candidate(discovery_db, candidate, run_id=run_id)
     master_b, status_second = await ingest_candidate(discovery_db, candidate, run_id=run_id)

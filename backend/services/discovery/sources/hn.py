@@ -2,13 +2,10 @@
 
 hn.algolia.com is a documented API host, so api_hosts grants the robots.txt
 exemption (D-31: API terms govern it) while the per-domain token bucket still
-throttles requests. normalize_hn_job_post lives here until Task 06 moves it
-into normalize.py.
+throttles requests. normalize_hn_job_post lives in normalize.py (Task 06).
 """
 
-import re
 from collections.abc import AsyncIterator
-from typing import Any
 
 from backend.services.discovery.base import (
     ParseError,
@@ -17,6 +14,7 @@ from backend.services.discovery.base import (
     SourceAdapter,
     SourceCandidate,
 )
+from backend.services.discovery.normalize import normalize_hn_job_post
 from backend.services.discovery.sanitize import strip_html_to_text
 
 SEARCH = (
@@ -24,26 +22,6 @@ SEARCH = (
     "?tags=story&query=Ask%20HN%20Who%20is%20hiring&hitsPerPage=5"
 )
 ITEM = "https://hn.algolia.com/api/v1/items/{object_id}"
-
-_URL_RE = re.compile(r"https?://[^\s|<>]+")
-
-
-def normalize_hn_job_post(text: str, item: dict[str, Any]) -> dict[str, Any]:
-    """Deterministic name/website/location heuristics for a hiring post (T06 moves this to normalize.py)."""
-    first_line = (text.splitlines() or [text])[0]
-    parts = [part.strip() for part in first_line.split("|")]
-    website = next((part for part in parts if part.startswith(("http://", "https://"))), None)
-    if website is None:
-        match = _URL_RE.search(first_line)
-        if match:
-            website = match.group(0).rstrip(").,;")
-    name = parts[0] if parts else ""
-    if website:
-        name = name.replace(website, "").strip(" ()-")
-    location = next(
-        (part for part in parts[1:] if not part.startswith("http") and part != name), None
-    )
-    return {"name": name or None, "website": website, "location": location, "industry": None}
 
 
 class HNAlgoliaSource(SourceAdapter):

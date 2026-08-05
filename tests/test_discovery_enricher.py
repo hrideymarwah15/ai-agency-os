@@ -7,7 +7,6 @@ sanitized text, so script-embedded addresses are inert).
 """
 
 import httpx
-import pytest
 
 from backend.database import Business
 from backend.services.discovery.enricher import (
@@ -80,8 +79,7 @@ def test_validate_enrichment_url_accepts_public_http() -> None:
         == "https://example.com:443/contact"
     )
     assert (
-        validate_enrichment_url("http://sub.example.co.uk/page")
-        == "http://sub.example.co.uk/page"
+        validate_enrichment_url("http://sub.example.co.uk/page") == "http://sub.example.co.uk/page"
     )
 
 
@@ -177,9 +175,7 @@ async def test_enricher_redirect_cap_three(mock_transport) -> None:
         return httpx.Response(200, text="final")
 
     business = Business(name="Acme", website_url="https://acme.example.com")
-    result = await enrich_homepage(
-        business, client=_client(mock_transport, handler), website=None
-    )
+    result = await enrich_homepage(business, client=_client(mock_transport, handler), website=None)
 
     assert calls == ["/", "/hop1", "/hop2", "/hop3"]  # hop4 never fetched
     assert result["success"] is False
@@ -195,9 +191,7 @@ async def test_enricher_redirect_to_internal_host_rejected(mock_transport) -> No
         return httpx.Response(301, headers={"location": "http://localhost:5432/evil"})
 
     business = Business(name="Acme", website_url="https://acme.example.com")
-    result = await enrich_homepage(
-        business, client=_client(mock_transport, handler), website=None
-    )
+    result = await enrich_homepage(business, client=_client(mock_transport, handler), website=None)
 
     assert calls == ["/"]  # internal hop never fetched
     assert result["success"] is False

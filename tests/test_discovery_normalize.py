@@ -93,9 +93,7 @@ def test_normalize_hn_job_post_three_part_line() -> None:
 
 def test_normalize_hn_job_post_url_in_name_part() -> None:
     """URL embedded in the first part is extracted and removed from the name."""
-    normalized = normalize_hn_job_post(
-        "Acme (https://acme.example.com) | Remote | full-time", {}
-    )
+    normalized = normalize_hn_job_post("Acme (https://acme.example.com) | Remote | full-time", {})
     assert normalized["name"] == "Acme"
     assert normalized["website"] == "https://acme.example.com"
     assert normalized["location"] == "Remote"
