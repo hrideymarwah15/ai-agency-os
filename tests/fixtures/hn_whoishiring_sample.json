@@ -1,0 +1,27 @@
+{
+  "hits": [
+    {
+      "objectID": "9999",
+      "title": "Ask HN: Who is hiring? (August 2026)",
+      "author": "whoishiring",
+      "points": 42
+    }
+  ],
+  "children": [
+    {
+      "id": 111,
+      "author": "acme-web-studio",
+      "text": "<p>Acme Web Studio | Remote (Worldwide) | <a href=\"https://acme-web-studio.example.com/jobs\" rel=\"nofollow\">https://acme-web-studio.example.com/jobs</a></p>"
+    },
+    {
+      "id": 222,
+      "author": "globex",
+      "text": "Globex | Berlin | https://globex.example.com/careers"
+    },
+    {
+      "id": 333,
+      "author": "deleted",
+      "text": "[deleted]"
+    }
+  ]
+}
