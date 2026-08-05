@@ -2,6 +2,7 @@
 
 import json
 from typing import Any
+from urllib.parse import quote, unquote
 
 from fastapi import Request, Response
 from itsdangerous import URLSafeTimedSerializer
@@ -30,10 +31,16 @@ def clear_session_cookie(response: Response) -> None:
 
 
 def set_flash(response: Response, message: str, kind: str = "error") -> None:
-    """Queue a flash message (rendered on the next server-rendered page)."""
+    """Queue a flash message (rendered on the next server-rendered page).
+
+    The JSON envelope is percent-encoded before writing: cookie values are
+    ASCII-only on the wire (RFC 6265), and percent-encoding avoids SimpleCookie's
+    quote/escape wrapping (which httpx's cookie parser does not unescape) while
+    keeping the UI-SPEC copy byte-for-byte after unquote + json.loads.
+    """
     response.set_cookie(
         "flash",
-        json.dumps({"message": message, "kind": kind}),
+        quote(json.dumps({"message": message, "kind": kind}), safe=""),
         httponly=True,
         samesite="lax",
         max_age=60,
@@ -47,12 +54,12 @@ def read_flash(request: Request) -> dict[str, Any] | None:
     if not raw:
         return None
     try:
-        data = json.loads(raw)
+        data = json.loads(unquote(raw))
         if isinstance(data, dict) and "message" in data:
             return data
     except ValueError:
         pass
-    return {"message": raw, "kind": "error"}
+    return {"message": unquote(raw), "kind": "error"}
 
 
 def clear_flash(response: Response) -> None:

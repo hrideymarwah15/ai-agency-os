@@ -33,13 +33,13 @@ _INVALID_CREDENTIALS = "Invalid email or password."
 
 @router.get("/login")
 async def login_page(request: Request) -> Response:
-    """Render the login page (or bounce already-authenticated owners to /audit)."""
+    """Render the login page (or bounce already-authenticated owners to /approvals)."""
     try:
         get_current_owner(request)
     except HTTPException:
         pass
     else:
-        return RedirectResponse(url="/audit", status_code=302)
+        return RedirectResponse(url="/approvals", status_code=302)
     flash = read_flash(request)
     response = templates.TemplateResponse(
         request,
@@ -87,7 +87,7 @@ async def login(request: Request, session: AsyncSession = Depends(get_db)) -> Re
     )
     await session.commit()
 
-    response = RedirectResponse(url="/audit", status_code=302)
+    response = RedirectResponse(url="/approvals", status_code=302)
     create_session_cookie(response, config.settings.owner_email)
     return response
 

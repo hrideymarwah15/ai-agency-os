@@ -26,7 +26,7 @@ def test_login_success_sets_session_cookie(migrated_db):
     with _client() as client:
         response = _login(client)
     assert response.status_code == 302
-    assert response.headers["location"] == "/audit"
+    assert response.headers["location"] == "/approvals"  # landing page per UI-SPEC (plan 01-03)
     set_cookie = response.headers["set-cookie"].lower()
     assert "session=" in set_cookie
     assert "httponly" in set_cookie

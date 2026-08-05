@@ -76,9 +76,12 @@ async def list_requests(
     stmt = stmt.order_by(
         case((ApprovalRequest.status == ApprovalStatus.PENDING, 0), else_=1),
         case(
-            (ApprovalRequest.status == ApprovalStatus.PENDING, ApprovalRequest.created_at.asc()),
-            else_=ApprovalRequest.created_at.desc(),
-        ),
+            (ApprovalRequest.status == ApprovalStatus.PENDING, ApprovalRequest.created_at),
+            else_=None,
+        )
+        .asc()
+        .nullslast(),
+        ApprovalRequest.created_at.desc(),
     )
     result = await session.execute(stmt)
     return result.scalars().all()

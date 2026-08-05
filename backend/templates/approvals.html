@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Approval Queue — AI Agency OS{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Approval Queue</h1>
+  <p>Gated actions waiting for your review. Approve to resume the workflow, reject to halt it.</p>
+</header>
+{% if demo_enabled %}
+<form method="post" action="/approvals/demo/start" class="demo-trigger">
+  <button type="submit" class="btn btn-ghost">Start demo</button>
+</form>
+{% endif %}
+{% if requests %}
+  {% for request in requests %}
+  <article class="card queue-card">
+    <div class="queue-row">
+      <span class="badge badge--{{ request.status|lower }}">{{ request.status_label }}</span>
+      <span class="badge badge--action">{{ request.action_type }}</span>
+      <h2 class="queue-entity">{{ request.entity }}</h2>
+      <span class="queue-amount">{{ request.currency }}{{ request.amount_display }}</span>
+      <time class="queue-time" datetime="{{ request.created_at }}">{{ request.created_at }}</time>
+    </div>
+    <details class="queue-details">
+      <summary>View details</summary>
+      <dl class="detail-list">
+        <dt>Amount</dt>
+        <dd>{{ request.currency }}{{ request.amount_display }}</dd>
+        <dt>Entity</dt>
+        <dd>{{ request.entity }}</dd>
+        {% for item in request.details %}
+        <dt>{{ item.label }}</dt>
+        <dd>{{ item.value }}</dd>
+        {% endfor %}
+      </dl>
+    </details>
+    {% if request.status == "PENDING" %}
+    <div class="queue-actions">
+      <form method="post" action="/approvals/{{ request.id }}/approve">
+        <button type="submit" class="btn btn-primary">Approve</button>
+      </form>
+      <details class="queue-reject">
+        <summary>Reject</summary>
+        <form method="post" action="/approvals/{{ request.id }}/reject">
+          <label class="visually-hidden" for="reason-{{ request.id }}">Reason for rejection</label>
+          <textarea id="reason-{{ request.id }}" name="reason" class="input" rows="2" required placeholder="Reason (required)"></textarea>
+          <p class="queue-note">This halts the workflow. This cannot be undone.</p>
+          <button type="submit" class="btn btn-destructive">Reject</button>
+        </form>
+      </details>
+      <form method="post" action="/approvals/{{ request.id }}/escalate">
+        <button type="submit" class="btn btn-ghost">Escalate</button>
+      </form>
+    </div>
+    {% elif request.decision_reason %}
+    <p class="queue-reason">Reason: {{ request.decision_reason }}</p>
+    {% endif %}
+  </article>
+  {% endfor %}
+{% else %}
+<div class="empty-state">
+  <h2>No approvals pending</h2>
+  <p>Nothing is waiting for your review. Gated actions (contracts, payments, below-floor offers, legal changes) will appear here when agents request them.</p>
+</div>
+{% endif %}
+{% endblock %}

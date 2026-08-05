@@ -22,6 +22,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend import database
+from backend.api import approvals as approvals_api
 from backend.api import audit as audit_api
 from backend.api import auth as auth_api
 from backend.api import unsubscribe as unsubscribe_api
@@ -86,6 +87,7 @@ _configure_logging()
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 app.include_router(auth_api.router)
+app.include_router(approvals_api.router)
 app.include_router(audit_api.router)
 # Public by design (CMP-04): no Depends(get_current_owner) on the unsubscribe route.
 app.include_router(unsubscribe_api.router)

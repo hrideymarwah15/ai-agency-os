@@ -18,11 +18,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import database
 from backend.database import SchedulerHeartbeat
+from backend.services.approvals import expire_stale
 from backend.services.budget import prune_spend_rows
+from backend.workflows import get_ceo_review_graph
 
 _HEARTBEAT_JOB_ID = "heartbeat"
 _SPEND_RESET_JOB_ID = "spend-window-reset"
+_APPROVAL_SWEEPER_JOB_ID = "approval-sweeper"
 _HEARTBEAT_INTERVAL_SECONDS = 30
+_APPROVAL_SWEEPER_INTERVAL_SECONDS = 60
 
 
 async def write_heartbeat(session: AsyncSession, *, job_name: str = "heartbeat") -> None:
@@ -75,6 +79,20 @@ async def _spend_reset_job() -> None:
         await prune_spend_rows(session, retention_days=30)
 
 
+async def _approval_sweeper_job() -> None:
+    """D-09: auto-reject PENDING approvals past expires_at (explicit, audited).
+
+    Each stale request resumes as a reject with reason "timeout" (T-03-06);
+    the decision audit lands with actor="system".
+    """
+    session_maker = database.async_session_maker
+    if session_maker is None:
+        raise RuntimeError("Database not initialized")
+    graph = await get_ceo_review_graph()
+    async with session_maker() as session:
+        await expire_stale(session, graph, datetime.now(UTC))
+
+
 def _on_job_error(event: JobExecutionEvent) -> None:
     """D-12 silent-failure alert: any job exception reaches loguru."""
     logger.error(f"[scheduler] job failed: {event.job_id} — {event.exception!r}")
@@ -95,6 +113,14 @@ def build_scheduler() -> AsyncIOScheduler:
         _spend_reset_job,
         CronTrigger(hour=0),
         id=_SPEND_RESET_JOB_ID,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=60,
+    )
+    scheduler.add_job(
+        _approval_sweeper_job,
+        IntervalTrigger(seconds=_APPROVAL_SWEEPER_INTERVAL_SECONDS),
+        id=_APPROVAL_SWEEPER_JOB_ID,
         max_instances=1,
         coalesce=True,
         misfire_grace_time=60,
