@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Audit — {{ lead.name }} — AI Agency OS{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>{{ lead.name }}</h1>
+  <p><a href="/website-audits">Website Audits</a> · <a href="/website-audits/lead/{{ lead.business_id }}">Audit history</a> · Audited {{ audit.started_at_display }}</p>
+</header>
+<div class="action-row">
+  <form method="post" action="/website-audits/lead/{{ lead.business_id }}/run">
+    <button type="submit" class="btn btn-primary">Re-audit</button>
+  </form>
+  <p class="action-note">Queued audits run in order.</p>
+</div>
+{% if audit.status == "RUNNING" %}
+<div class="empty-state">
+  <h2>In progress</h2>
+  <p>This audit is still running. Scores appear here when it completes.</p>
+</div>
+{% elif audit.status == "FAILED" %}
+<div class="empty-state">
+  <h2>Failed</h2>
+  <p>The audit failed: {{ audit.last_error }}</p>
+</div>
+{% else %}
+<section class="section">
+  <h2 class="section-title">Scores</h2>
+  <div class="score-grid">
+    <div class="card">
+      <h3 class="score-label">Performance</h3>
+      <p class="score-value">{{ audit.scores.performance }}</p>
+      <p class="bucket-line">{{ audit.mode_label }}</p>
+    </div>
+    <div class="card">
+      <h3 class="score-label">Accessibility</h3>
+      <p class="score-value">{{ audit.scores.accessibility }}</p>
+    </div>
+    <div class="card">
+      <h3 class="score-label">SEO</h3>
+      <p class="score-value">{{ audit.scores.seo }}</p>
+    </div>
+    <div class="card">
+      <h3 class="score-label">Mobile</h3>
+      <p class="score-value">{{ audit.scores.mobile }}</p>
+    </div>
+  </div>
+</section>
+<section class="section">
+  <h2 class="section-title">Core Web Vitals</h2>
+  <div class="table-scroll">
+    <table class="table" aria-label="Core Web Vitals">
+      <thead>
+        <tr>
+          <th scope="col">Metric</th>
+          <th scope="col">Value</th>
+          <th scope="col">Methodology</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cwv in audit.cwv %}
+        <tr>
+          <th scope="row">{{ cwv.metric }}</th>
+          <td class="num">{{ cwv.value_display }}</td>
+          <td><span class="badge badge--{{ cwv.methodology_badge }}">{{ cwv.methodology_label }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="table-note">LCP = Largest Contentful Paint · INP = Interaction to Next Paint · CLS = Cumulative Layout Shift · TTFB = Time to First Byte</p>
+  {% for note in audit.cwv_notes %}
+  <p class="bucket-line">{{ note }}</p>
+  {% endfor %}
+</section>
+<section class="section">
+  <h2 class="section-title">Tech stack, hosting &amp; analytics</h2>
+  <dl class="detail-list">
+    <dt>Tech stack</dt>
+    <dd>
+      {% if audit.tech_stack %}
+      {% for item in audit.tech_stack %}<span class="badge badge--source">{{ item.name }}</span> {% endfor %}
+      {% else %}—{% endif %}
+    </dd>
+    <dt>CMS</dt>
+    <dd>{% if audit.cms %}{{ audit.cms.name }} · {{ audit.cms.confidence_label }}{% else %}—{% endif %}</dd>
+    <dt>Hosting</dt>
+    <dd>{% if audit.hosting %}{{ audit.hosting.name }} · {{ audit.hosting.confidence_label }}{% else %}—{% endif %}</dd>
+    <dt>Analytics</dt>
+    <dd>
+      {% if audit.analytics %}
+      {% for item in audit.analytics %}<span class="badge badge--source">{{ item.name }}</span> {% endfor %}
+      {% else %}—{% endif %}
+    </dd>
+  </dl>
+</section>
+<section class="section">
+  <h2 class="section-title">Broken links</h2>
+  {% if audit.broken_links %}
+  <div class="table-scroll">
+    <table class="table" aria-label="Broken links">
+      <thead>
+        <tr>
+          <th scope="col">Link</th>
+          <th scope="col">Type</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for link in audit.broken_links %}
+        <tr>
+          <th scope="row">{{ link.url }}</th>
+          <td><span class="badge badge--action">{{ link.kind_label }}</span></td>
+          <td><span class="badge badge--{{ link.status_badge }}">{{ link.status_label }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="table-note">Checked up to 20 internal and 5 external links. External links beyond the cap are skipped.</p>
+  {% else %}
+  <p class="table-note">No broken links detected.</p>
+  {% endif %}
+</section>
+<section class="section">
+  <h2 class="section-title">Conversion-flow gaps</h2>
+  {% if audit.gaps %}
+  <dl class="detail-list">
+    {% for gap in audit.gaps %}
+    <dt>{{ gap.label }}</dt>
+    <dd>{{ gap.description }}</dd>
+    {% endfor %}
+  </dl>
+  {% else %}
+  <p class="table-note">No conversion-flow gaps detected.</p>
+  {% endif %}
+</section>
+{% if older_audits %}
+<section class="section">
+  <h2 class="section-title">Audit history</h2>
+  <div class="table-scroll">
+    <table class="table" aria-label="Older audits for {{ lead.name }}">
+      <thead>
+        <tr>
+          <th scope="col">Audited</th>
+          <th scope="col">Version</th>
+          <th scope="col">Overall</th>
+          <th scope="col">Status</th>
+          <th scope="col">View</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for audit in older_audits %}
+        <tr>
+          <th scope="row">{{ audit.started_at_display }}</th>
+          <td>{{ audit.audit_version }}</td>
+          <td class="num">{{ audit.overall_score_display }}</td>
+          <td><span class="badge badge--{{ audit.status_badge }}">{{ audit.status_label }}</span></td>
+          <td><a href="/website-audits/{{ audit.audit_id }}">View</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endif %}
+<p class="run-id">Audit {{ audit.audit_id }}</p>
+{% endblock %}

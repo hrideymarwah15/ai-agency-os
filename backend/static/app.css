@@ -141,6 +141,27 @@ a { color: var(--accent); }
   padding: var(--space-lg);
 }
 
+/* ── Phase 02.1 delta: audit score cards (UI-SPEC §Component Specs) ─── */
+
+.score-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-md);
+}
+.score-value {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  margin: 0 0 var(--space-xs);
+}
+.score-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-sm);
+}
+
 /* ── Login page (400px centered card) ───────────────────────────────── */
 
 .login-shell {

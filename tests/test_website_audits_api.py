@@ -32,8 +32,17 @@ HISTORY_EMPTY_COPY = "No audits yet for this lead"
 
 
 @pytest.fixture(autouse=True)
-async def clean_tables(audit_db, discovery_db):
-    """WebsiteAudit rows (audit_db) + businesses (discovery_db) cleaned per test."""
+async def clean_tables(audit_db, discovery_db, test_session):
+    """OutboxEvent + AuditLog rows are NOT covered by shared fixtures — clear them.
+
+    audit_logs is append-only at the DB level (DELETE blocked by trigger), so
+    TRUNCATE is required — same approach as test_approval_roundtrip.py.
+    """
+    from sqlalchemy import delete, text
+
+    await test_session.execute(delete(OutboxEvent))
+    await test_session.execute(text("TRUNCATE audit_logs"))
+    await test_session.commit()
     yield
 
 
@@ -81,7 +90,7 @@ async def _seed_audit(
     status: AuditStatus = AuditStatus.COMPLETED,
     scores: tuple[int, int, int, int] = (90, 80, 70, 60),
     hours_ago: int = 1,
-    finished: bool | None = None,
+    finished_at: bool | None = None,
     last_error: str | None = None,
 ) -> WebsiteAudit:
     """Seed a WebsiteAudit row the way the runner would persist it."""
@@ -101,12 +110,14 @@ async def _seed_audit(
             "inp_ms": 145 if status == AuditStatus.COMPLETED else None,
             "methodology": {
                 "measured_with": "playwright" if status == AuditStatus.COMPLETED else "static",
-                "inp_estimation": "scripted_event_timing"
-                if status == AuditStatus.COMPLETED
-                else "not_assessed",
-                "notes": []
-                if status == AuditStatus.COMPLETED
-                else ["Browser unavailable — rendered metrics not measured"],
+                "inp_estimation": (
+                    "scripted_event_timing" if status == AuditStatus.COMPLETED else "not_assessed"
+                ),
+                "notes": (
+                    []
+                    if status == AuditStatus.COMPLETED
+                    else ["Browser unavailable — rendered metrics not measured"]
+                ),
             },
         },
         tech_stack=[{"name": "react", "confidence": 0.9}],
@@ -115,7 +126,11 @@ async def _seed_audit(
         analytics=[{"name": "ga4", "confidence": 0.8}],
         last_error=last_error,
         started_at=started,
-        finished_at=started if finished or (finished is None and status == AuditStatus.COMPLETED) else None,
+        finished_at=(
+            started
+            if finished_at or (finished_at is None and status == AuditStatus.COMPLETED)
+            else None
+        ),
     )
     test_session.add(audit)
     await test_session.commit()
@@ -128,9 +143,7 @@ async def _seed_audit(
 # ---------------------------------------------------------------------------
 
 
-async def test_api_trigger_requires_login(
-    migrated_db, audit_db, discovery_db, test_session
-):
+async def test_api_trigger_requires_login(migrated_db, audit_db, discovery_db, test_session):
     """Unauthenticated POST → login, nothing created."""
     business = await _seed_business(test_session)
     with _client() as client:
@@ -148,9 +161,7 @@ async def test_api_list_requires_login(migrated_db, audit_db, discovery_db):
     assert response.headers["location"] == "/auth/login"
 
 
-async def test_api_trigger_rejects_cross_origin(
-    migrated_db, audit_db, discovery_db, test_session
-):
+async def test_api_trigger_rejects_cross_origin(migrated_db, audit_db, discovery_db, test_session):
     """T-03-03 defense-in-depth: cross-origin POST → 403, nothing created."""
     business = await _seed_business(test_session)
     with _client() as client:
@@ -249,9 +260,7 @@ async def test_api_list_leads_without_audits_empty_state(
     assert "<table" not in page.text
 
 
-async def test_api_list_renders_lead_rows(
-    migrated_db, audit_db, discovery_db, test_session
-):
+async def test_api_list_renders_lead_rows(migrated_db, audit_db, discovery_db, test_session):
     """Row: business, website, last audited, overall, status, links, re-audit."""
     lead = await _seed_business(test_session, name="Acme Corp")
     audit = await _seed_audit(test_session, lead, scores=(90, 80, 70, 60))
@@ -264,16 +273,14 @@ async def test_api_list_renders_lead_rows(
     assert "example.com" in page.text
     assert "Complete" in page.text
     # overall = round(mean(90,80,70,60)) = 75
-    assert '"75"' in page.text
+    assert ">75<" in page.text
     assert f'href="/website-audits/lead/{lead.id}"' in page.text
     assert f'href="/website-audits/{audit.id}"' in page.text
     assert f'action="/website-audits/lead/{lead.id}/run"' in page.text
     assert 'href="/website-audits" class="nav-link nav-link--active">Audits</a>' in page.text
 
 
-async def test_api_list_running_overall_dash(
-    migrated_db, audit_db, discovery_db, test_session
-):
+async def test_api_list_running_overall_dash(migrated_db, audit_db, discovery_db, test_session):
     """RUNNING latest audit → 'In progress' + '—' overall (never guessed)."""
     lead = await _seed_business(test_session)
     await _seed_audit(test_session, lead, status=AuditStatus.RUNNING, finished_at=None)
@@ -281,7 +288,7 @@ async def test_api_list_running_overall_dash(
         assert _login(client).status_code == 302
         page = client.get("/website-audits")
     assert "In progress" in page.text
-    assert '"—"' in page.text
+    assert ">—<" in page.text
 
 
 # ---------------------------------------------------------------------------
@@ -289,10 +296,8 @@ async def test_api_list_running_overall_dash(
 # ---------------------------------------------------------------------------
 
 
-async def test_lead_page_empty_state_runs_action(
-    migrated_db, audit_db, discovery_db, test_session
-):
-    """Zero audits → empty-state + 'Run audits' trigger label."""
+async def test_lead_page_empty_state_runs_action(migrated_db, audit_db, discovery_db, test_session):
+    """Zero audits → empty-state + 'Run audit' trigger label."""
     lead = await _seed_business(test_session)
     with _client() as client:
         assert _login(client).status_code == 302
@@ -300,7 +305,7 @@ async def test_lead_page_empty_state_runs_action(
 
     assert page.status_code == 200
     assert HISTORY_EMPTY_COPY in page.text
-    assert "Run audits" in page.text
+    assert "Run audit" in page.text
     assert f'action="/website-audits/lead/{lead.id}/run"' in page.text
 
 
@@ -315,10 +320,12 @@ async def test_lead_history_lists_newest_first_with_labels(
         page = client.get(f"/website-audits/lead/{lead.id}")
 
     assert page.status_code == 200
-    assert page.text.index(f"/website-audits/{new.id}") < page.text.index(f"/website-audits/{old.id}")
+    assert page.text.index(f"/website-audits/{new.id}") < page.text.index(
+        f"/website-audits/{old.id}"
+    )
     assert "Re-audit" in page.text
-    assert '"75"' in page.text  # newest overall
-    assert '"52"' in page.text  # round(mean(50,60,40,60))=52 — oldest overall
+    assert ">75<" in page.text  # newest overall
+    assert ">52<" in page.text  # round(mean(50,60,40,60))=52 — oldest overall
 
 
 async def test_lead_history_unknown_lead_404(migrated_db, audit_db, discovery_db):
@@ -373,7 +380,7 @@ async def test_detail_completed_renders_full_sections(
         ("Mobile", 100),
     ):
         assert label in page.text
-        assert f'>{value}<' in page.text
+        assert f">{value}<" in page.text
     assert "Rendered (Playwright)" in page.text
 
     # Core Web Vitals with value units + Measured methodology
@@ -394,9 +401,7 @@ async def test_detail_completed_renders_full_sections(
     assert f"Audit {audit.id}" in page.text
 
 
-async def test_detail_failed_renders_error_only(
-    migrated_db, audit_db, discovery_db, test_session
-):
+async def test_detail_failed_renders_error_only(migrated_db, audit_db, discovery_db, test_session):
     lead = await _seed_business(test_session)
     audit = await _seed_audit(
         test_session,
@@ -416,9 +421,7 @@ async def test_detail_failed_renders_error_only(
     assert "score-value" not in page.text
 
 
-async def test_detail_running_shows_note_only(
-    migrated_db, audit_db, discovery_db, test_session
-):
+async def test_detail_running_shows_note_only(migrated_db, audit_db, discovery_db, test_session):
     lead = await _seed_business(test_session)
     audit = await _seed_audit(test_session, lead, status=AuditStatus.RUNNING, finished_at=None)
     with _client() as client:

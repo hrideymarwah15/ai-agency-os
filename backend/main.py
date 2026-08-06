@@ -27,7 +27,9 @@ from backend.api import audit as audit_api
 from backend.api import auth as auth_api
 from backend.api import discovery as discovery_api
 from backend.api import unsubscribe as unsubscribe_api
+from backend.api import website_audits as website_audits_api
 from backend.auth.session import set_flash
+from backend.services.audits.worker import audit_worker
 from backend.services.discovery.worker import discovery_worker
 from backend.services.scheduler import build_scheduler, write_heartbeat
 
@@ -77,11 +79,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if session_maker is not None:
         async with session_maker() as session:
             await write_heartbeat(session, job_name="startup")
-    # T07: durable outbox worker for discovery runs (serial, cancellable — D-12).
+    # T07: durable outbox workers (serial, cancellable — D-12): discovery runs
+    # and website audits each poll their own topic, one job at a time.
     worker_task = asyncio.create_task(discovery_worker())
+    audit_worker_task = asyncio.create_task(audit_worker())
     yield
     worker_task.cancel()
-    await asyncio.gather(worker_task, return_exceptions=True)
+    audit_worker_task.cancel()
+    await asyncio.gather(worker_task, audit_worker_task, return_exceptions=True)
     scheduler.shutdown(wait=False)
     await database.close_db()
 
@@ -96,6 +101,7 @@ app.include_router(auth_api.router)
 app.include_router(approvals_api.router)
 app.include_router(audit_api.router)
 app.include_router(discovery_api.router)
+app.include_router(website_audits_api.router)
 # Public by design (CMP-04): no Depends(get_current_owner) on the unsubscribe route.
 app.include_router(unsubscribe_api.router)
 

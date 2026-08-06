@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Website Audits — AI Agency OS{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Website Audits</h1>
+  <p>Audit history for discovered leads: view the latest scores, past runs, and trigger re-audits.</p>
+</header>
+{% if lead_count == 0 %}
+<div class="empty-state">
+  <h2>No leads yet</h2>
+  <p>Once leads are discovered, their website audits appear here.</p>
+</div>
+{% elif not rows %}
+<div class="empty-state">
+  <h2>No audits yet</h2>
+  <p>Run the first audit to start collecting performance, accessibility, SEO, and mobile scores for your leads.</p>
+</div>
+{% else %}
+<section class="section">
+  <div class="table-scroll">
+    <table class="table" aria-label="Audited leads">
+      <thead>
+        <tr>
+          <th scope="col">Business</th>
+          <th scope="col">Website</th>
+          <th scope="col">Last audited</th>
+          <th scope="col">Overall</th>
+          <th scope="col">Status</th>
+          <th scope="col">History</th>
+          <th scope="col">Audit</th>
+          <th scope="col">Re-audit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <th scope="row">{{ row.name }}</th>
+          <td>{{ row.website_url }}</td>
+          <td>{{ row.last_audited_display }}</td>
+          <td class="num">{{ row.overall_score_display }}</td>
+          <td><span class="badge badge--{{ row.status_badge }}">{{ row.status_label }}</span></td>
+          <td><a href="/website-audits/lead/{{ row.business_id }}">History</a></td>
+          <td><a href="/website-audits/{{ row.audit_id }}">View</a></td>
+          <td>
+            <form method="post" action="/website-audits/lead/{{ row.business_id }}/run">
+              <button type="submit" class="btn btn-ghost">Re-audit</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="table-note">Showing the most recent 20 leads with audits.</p>
+</section>
+{% endif %}
+{% endblock %}
