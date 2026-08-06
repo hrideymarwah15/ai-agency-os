@@ -42,9 +42,10 @@ _CLEAN_HTML = """<!doctype html>
 <h1>Acme Web Studio</h1>
 <p>We build fast websites for small businesses.</p>
 <img src="/assets/logo.png" alt="Acme logo">
-<a href="/about">About us</a>
-<a href="/broken">Broken page</a>
-<a href="https://external.example.com/tools">External tools</a>
+<a href="https://example.com/about">About us</a>
+<a href="https://example.com/broken">Broken page</a>
+<a href="https://example.com/quote">Get a quote</a>
+<a href="https://external.example.com/tools">Get a quote</a>
 <a href="mailto:hello@acme.example.com">Email us</a>
 <a href="tel:+14155550132">Call us</a>
 <form action="/contact" method="post"><input name="q" aria-label="Search"></form>
@@ -84,7 +85,7 @@ def _make_handler(
 @pytest.fixture
 def fast_client_factory():
     """Compliant client over MockTransport with an instant-refill bucket."""
-    inner = httpx.AsyncClient(transport=_make_handler(), timeout=10.0)
+    inner = httpx.AsyncClient(transport=httpx.MockTransport(_make_handler()), timeout=10.0)
 
     def factory() -> CompliantHTTPClient:
         return CompliantHTTPClient(
@@ -99,8 +100,9 @@ def fast_client_factory():
 @pytest.fixture
 def db_maker(test_engine, monkeypatch):
     """Point database.async_session_maker at the test engine (approvals pattern)."""
-    import backend.database as db
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+    import backend.database as db
 
     maker = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
     monkeypatch.setattr(db, "async_session_maker", maker)
@@ -108,7 +110,7 @@ def db_maker(test_engine, monkeypatch):
 
 
 async def _seed_audit(test_session, *, website: str = "https://example.com/") -> WebsiteAudit:
-    business = Business(name="Acme Web Studio", website=website)
+    business = Business(name="Acme Web Studio", website_url=website)
     test_session.add(business)
     await test_session.flush()
     audit = WebsiteAudit(
@@ -214,11 +216,9 @@ async def test_external_link_cap_records_skipped(
     migrated_db, discovery_db, audit_db, db_maker, test_session
 ):
     """External links beyond AUDIT_EXTERNAL_LINK_CAP are recorded 'skipped' (D-37)."""
-    external = "\n".join(
-        f'<a href="https://external{i}.example.com/x">e{i}</a>' for i in range(8)
-    )
+    external = "\n".join(f'<a href="https://external{i}.example.com/x">e{i}</a>' for i in range(8))
     html = _CLEAN_HTML.replace(
-        '<a href="https://external.example.com/tools">External tools</a>', external
+        '<a href="https://external.example.com/tools">Get a quote</a>', external
     )
     transport = httpx.MockTransport(_make_handler(html))
     inner = httpx.AsyncClient(transport=transport, timeout=10.0)
@@ -235,8 +235,9 @@ async def test_external_link_cap_records_skipped(
     test_session.expire_all()
 
     row = (await test_session.execute(select(WebsiteAudit))).scalar_one()
-    checked = [e for e in row.broken_links if e["status"] != "skipped"]
-    skipped = [e for e in row.broken_links if e["status"] == "skipped"]
+    externals = [e for e in row.broken_links if "external" in e["url"]]
+    checked = [e for e in externals if e["status"] != "skipped"]
+    skipped = [e for e in externals if e["status"] == "skipped"]
     assert len(checked) == settings.audit_external_link_cap
     assert len(skipped) == 8 - settings.audit_external_link_cap
 

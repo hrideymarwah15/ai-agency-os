@@ -9,7 +9,6 @@ tests never touch the network (runner behavior is covered in test_audit_runner).
 import asyncio
 import time
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
 
 import pytest
 from sqlalchemy import select
@@ -47,9 +46,7 @@ def db_maker(test_engine, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-async def clean_audit_worker_tables(
-    audit_db, discovery_db, test_session
-):
+async def clean_audit_worker_tables(audit_db, discovery_db, test_session):
     """Worker tests own audit rows, businesses, and the shared outbox."""
     from sqlalchemy import delete
 
@@ -67,7 +64,7 @@ def offline_execute(monkeypatch):
 async def _seed_audit_and_event(
     test_session, *, at: datetime | None = None
 ) -> tuple[WebsiteAudit, OutboxEvent]:
-    business = Business(name="Acme Web Studio", website="https://example.com/")
+    business = Business(name="Acme Web Studio", website_url="https://example.com/")
     test_session.add(business)
     await test_session.flush()
     audit = WebsiteAudit(
@@ -92,7 +89,11 @@ async def _seed_audit_and_event(
 async def _events(test_session) -> list[OutboxEvent]:
     # The worker commits through its own session — re-read statuses from the DB.
     test_session.expire_all()
-    result = await test_session.execute(select(OutboxEvent).order_by(OutboxEvent.created_at))
+    result = await test_session.execute(
+        select(OutboxEvent)
+        .order_by(OutboxEvent.created_at)
+        .execution_options(populate_existing=True)
+    )
     return list(result.scalars().all())
 
 
@@ -114,10 +115,9 @@ async def test_worker_drains_audit_events_serially_in_order(
 ):
     """Two queued audit events → both DONE, audits COMPLETED, FIFO order."""
     now = datetime.now(UTC)
-    audit_a, event_a = await _seed_audit_and_event(test_session, at=now)
-    audit_b, event_b = await _seed_audit_and_event(
-        test_session, at=now + timedelta(seconds=1)
-    )
+    audit_a, _event_a = await _seed_audit_and_event(test_session, at=now)
+    audit_b, _event_b = await _seed_audit_and_event(test_session, at=now + timedelta(seconds=1))
+    ids = [audit_a.id, audit_b.id]  # plain UUIDs — safe after expire_all() in _events
 
     task = asyncio.create_task(audit_worker(poll_interval=_POLL))
     try:
@@ -129,7 +129,7 @@ async def test_worker_drains_audit_events_serially_in_order(
     with pytest.raises(asyncio.CancelledError):
         await task
 
-    assert rows[0].payload["audit_id"] == str(audit_a.id)
+    assert rows[0].payload["audit_id"] == str(ids[0])
     assert rows[0].processed_at is not None
     assert rows[0].processed_at <= rows[1].processed_at
     for row in rows:
@@ -137,10 +137,14 @@ async def test_worker_drains_audit_events_serially_in_order(
 
     # Worker routed the payload to the right audit rows.
     test_session.expire_all()
-    audits = (await test_session.execute(select(WebsiteAudit))).scalars().all()
+    audits = (
+        (await test_session.execute(select(WebsiteAudit).execution_options(populate_existing=True)))
+        .scalars()
+        .all()
+    )
     assert {str(a.id): a.status for a in audits} == {
-        str(audit_a.id): AuditStatus.COMPLETED,
-        str(audit_b.id): AuditStatus.COMPLETED,
+        str(ids[0]): AuditStatus.COMPLETED,
+        str(ids[1]): AuditStatus.COMPLETED,
     }
 
 
@@ -149,7 +153,8 @@ async def test_worker_failure_marks_event_failed_with_last_error(
 ):
     """execute_audit raising → event FAILED, last_error recorded, row untouched."""
     monkeypatch.setattr(worker_module, "execute_audit", _fail_execute)
-    audit, event = await _seed_audit_and_event(test_session)
+    _audit, event = await _seed_audit_and_event(test_session)
+    event_id = event.id  # plain UUID — safe after expire_all() in _events
 
     task = asyncio.create_task(audit_worker(poll_interval=_POLL))
     try:
@@ -161,7 +166,7 @@ async def test_worker_failure_marks_event_failed_with_last_error(
     with pytest.raises(asyncio.CancelledError):
         await task
 
-    assert rows[0].id == event.id
+    assert rows[0].id == event_id
     assert "renderer crashed" in rows[0].last_error
     assert rows[0].attempts >= 1
 
