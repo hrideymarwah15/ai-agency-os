@@ -10,6 +10,7 @@ govern them) but still flow through the per-domain token bucket. Default ∅
 preserves Phase 1 deny-by-default behavior.
 """
 
+import time
 from urllib.parse import urlparse
 
 import httpx
@@ -46,6 +47,21 @@ class CompliantHTTPClient:
         response = await self._client.get(url)
         response.raise_for_status()
         return response
+
+    async def fetch_stream(self, url: str) -> tuple[httpx.Response, float]:
+        """Robots-checked, throttled, header-only probe: returns (response, ttfb_ms).
+
+        Uses the streaming API so TTFB = time to response headers; the body is
+        NOT read (link status checks, asset sizing). Default `fetch()` untouched
+        (RESEARCH Common Operation 1, D-32 gate intact).
+        """
+        if not await self._policy.can_fetch(url):
+            raise RobotsDeniedError(f"robots.txt denies fetching {url}")
+        await self._bucket.acquire(urlparse(url).hostname or "")
+        start = time.monotonic()
+        async with self._client.stream("GET", url) as response:
+            ttfb_ms = (time.monotonic() - start) * 1000
+            return response, ttfb_ms
 
 
 _shared_bucket: DomainTokenBucket | None = None

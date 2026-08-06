@@ -7,17 +7,12 @@ collects and only the browser-dependent tests skip; browser_available() itself
 never raises.
 """
 
-import asyncio
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
-from uuid import uuid4
 
 import httpx
 import pytest
-from sqlalchemy import select
 
-import backend.database as db
-from backend.database import Business, WebsiteAudit
 from backend.services.audits.renderer import browser_available, render_audit
 from backend.services.compliance.rate_limit import DomainTokenBucket
 from backend.services.compliance.robots import RobotsPolicy
@@ -43,6 +38,7 @@ _WIDE_HTML = """<!doctype html><html lang="en"><head>
 # ---------------------------------------------------------------------------
 # fetch_stream — compliant door streaming probe (AUDT-01 TTFB, AUDT-03 links)
 # ---------------------------------------------------------------------------
+
 
 def _robots_handler(allow: bool):
     def handler(request: httpx.Request) -> httpx.Response:
@@ -91,6 +87,7 @@ async def test_fetch_stream_default_fetch_unchanged():
 # browser probe — never raises, returns bool
 # ---------------------------------------------------------------------------
 
+
 def test_browser_available_returns_bool():
     """Probe is a plain bool function — safe to call at import/collection."""
     assert isinstance(browser_available(), bool)
@@ -107,7 +104,7 @@ pytestmark = pytest.mark.skipif(
 
 
 class _FixtureHandler(BaseHTTPRequestHandler):
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         if self.path.startswith("/wide"):
             body = _WIDE_HTML.encode()
         else:
