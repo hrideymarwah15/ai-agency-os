@@ -83,13 +83,13 @@ def test_confidence_votes_up_on_multiple_matches():
 
 
 def test_first_match_wins_for_cms_category():
-    """Two CMS signatures present → the first table row wins for the CMS slot."""
+    """Two CMSs present → the earliest table row owns the CMS slot (RESEARCH 4)."""
     html = (
         '<script src="https://cdn.shopify.com/x.js"></script>'
         '<meta name="generator" content="WordPress 6.4" />'
     )
     result = match_signatures(html, {}, {})
-    assert result["cms"]["name"] == "shopify"  # shopify precedes wordpress in the table
+    assert result["cms"]["name"] == "wordpress"  # wordpress row precedes shopify in the table
 
 
 def test_hostile_input_never_raises():

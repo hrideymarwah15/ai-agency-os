@@ -1,7 +1,8 @@
 """Database lifecycle tests — RuntimeError guard, URL.create engine, tz-aware and callable defaults."""
 
-import pytest
 from uuid import uuid4
+
+import pytest
 
 from backend.config import settings
 from backend.database import Base, Business, DiscoveryRun, DiscoveryRunSourceStat, RunStatus

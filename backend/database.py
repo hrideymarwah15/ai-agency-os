@@ -610,9 +610,7 @@ class WebsiteAudit(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    __table_args__ = (
-        Index("ix_website_audits_business_started_at", "business_id", "started_at"),
-    )
+    __table_args__ = (Index("ix_website_audits_business_started_at", "business_id", "started_at"),)
 
 
 # ============================================
