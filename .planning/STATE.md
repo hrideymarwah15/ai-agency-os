@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: completed
 stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-08-05T09:49:56.022Z"
+last_updated: "2026-08-06T18:53:11.959Z"
 last_activity: 2026-08-05
 progress:
   total_phases: 8
-  completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
-  percent: 25
+  completed_phases: 3
+  total_plans: 7
+  completed_plans: 7
+  percent: 38
 ---
 
 # Project State
@@ -36,7 +36,7 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 11
+- Total plans completed: 12
 - Average duration: —
 - Total execution time: 0.0 hours
 
@@ -62,6 +62,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-foundation-orchestration-core P01-03 | 548 | 3 tasks | 19 files |
 | Phase 02-discovery P01 | 9h20m | - tasks | - files |
 | Phase 02-discovery P01 | 9h20m | 9 tasks | 31 files |
+| Phase 02.1 P01 | 2d | 6 tasks | 24 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,8 @@ Recent decisions affecting current work:
 - [Phase ?]: run.total_candidates = sum(new+merged); dedup_rate percent or em-dash when no candidates
 - [Phase ?]: BLOCKED sources stop for the run and write source_excluded audit (LEAD-04)
 - [Phase ?]: JSONB loses dict order — rejection bucket lines sorted count-desc/reason-asc
+- [Phase 02.1]: INP is a lab estimate — labeled Estimated, never Measured; absent CWV values render '—' with 'Not assessed' (D-34)
+- [Phase 02.1]: Re-audit always inserts a NEW history row — never overwrites (D-39)
 
 ### Pending Todos
 
@@ -108,6 +111,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-05T09:41:59.315Z
+Last session: 2026-08-06T18:51:58.760Z
 Stopped at: Completed 01-03-PLAN.md
 Resume file: None

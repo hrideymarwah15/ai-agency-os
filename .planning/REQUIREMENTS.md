@@ -42,10 +42,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Website Intelligence
 
-- [ ] **AUDT-01**: System audits a business website: performance, accessibility, SEO, mobile scores (INP-based Core Web Vitals, not FID)
-- [ ] **AUDT-02**: System detects tech stack, CMS, hosting provider, and analytics presence
-- [ ] **AUDT-03**: System finds broken links, missing forms, and conversion-flow gaps
-- [ ] **AUDT-04**: System stores audit results per lead with timestamped history
+- [x] **AUDT-01**: System audits a business website: performance, accessibility, SEO, mobile scores (INP-based Core Web Vitals, not FID)
+- [x] **AUDT-02**: System detects tech stack, CMS, hosting provider, and analytics presence
+- [x] **AUDT-03**: System finds broken links, missing forms, and conversion-flow gaps
+- [x] **AUDT-04**: System stores audit results per lead with timestamped history
 
 ### Opportunity Detection
 
@@ -174,10 +174,10 @@ Deferred to future release. Tracked but not in current roadmap.
 | LEAD-03 | Phase 2 | Complete |
 | LEAD-04 | Phase 2 | Complete |
 | LEAD-05 | Phase 2 | Complete |
-| AUDT-01 | Phase 02.1 | Pending |
-| AUDT-02 | Phase 02.1 | Pending |
-| AUDT-03 | Phase 02.1 | Pending |
-| AUDT-04 | Phase 02.1 | Pending |
+| AUDT-01 | Phase 02.1 | Complete |
+| AUDT-02 | Phase 02.1 | Complete |
+| AUDT-03 | Phase 02.1 | Complete |
+| AUDT-04 | Phase 02.1 | Complete |
 | OPP-01 | Phase 02.2 | Pending |
 | OPP-02 | Phase 02.2 | Pending |
 | OPP-03 | Phase 02.2 | Pending |
