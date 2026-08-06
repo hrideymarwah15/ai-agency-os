@@ -568,6 +568,54 @@ class BusinessSourceRecord(Base):
 
 
 # ============================================
+# Website Audit Models (D-35, AUDT-01..04)
+# ============================================
+class AuditStatus(str, enum.Enum):
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class WebsiteAudit(Base):
+    """One website audit run per lead (D-35) — re-audit inserts a new row (D-39).
+
+    Status-carrying result row created at enqueue in the same transaction as the
+    audit.run outbox event (RESEARCH Pattern 2, A5). Scores come from
+    deterministic rule tables (D-36); CWV values carry methodology labels (D-34);
+    scraped strings are sanitized before storage (CMP-06/D-42).
+    """
+
+    __tablename__ = "website_audits"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    business_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("businesses.id", ondelete="CASCADE")
+    )
+    status: Mapped[AuditStatus] = mapped_column(SQLEnum(AuditStatus), default=AuditStatus.RUNNING)
+    performance_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    accessibility_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    seo_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mobile_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cwv: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    tech_stack: Mapped[list] = mapped_column(JSONB, default=list)
+    cms: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    hosting: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    analytics: Mapped[list] = mapped_column(JSONB, default=list)
+    broken_links: Mapped[list] = mapped_column(JSONB, default=list)
+    gaps: Mapped[list] = mapped_column(JSONB, default=list)
+    security_headers: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    raw_stats: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    audit_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("ix_website_audits_business_started_at", "business_id", "started_at"),
+    )
+
+
+# ============================================
 # Database Engine & Session
 # ============================================
 engine: AsyncEngine | None = None

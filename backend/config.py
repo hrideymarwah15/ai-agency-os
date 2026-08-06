@@ -161,6 +161,13 @@ class Settings(BaseSettings):
     yelp_api_key: str = Field(default="", alias="YELP_API_KEY")
     google_places_api_key: str = Field(default="", alias="GOOGLE_PLACES_API_KEY")
 
+    # Website Audits (D-35/D-45 — link sample caps, HTML cap, render gate)
+    audit_version: str = Field(default="1.0", alias="AUDIT_VERSION")
+    audit_broken_link_sample: int = Field(default=20, alias="AUDIT_BROKEN_LINK_SAMPLE")
+    audit_external_link_cap: int = Field(default=5, alias="AUDIT_EXTERNAL_LINK_CAP")  # 0 = off
+    audit_html_max_bytes: int = Field(default=524288, alias="AUDIT_HTML_MAX_BYTES")
+    audit_max_render_seconds: int = Field(default=60, alias="AUDIT_MAX_RENDER_SECONDS")
+
     # Service Catalog
     service_catalog: dict = Field(
         default={

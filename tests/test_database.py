@@ -1,6 +1,7 @@
 """Database lifecycle tests — RuntimeError guard, URL.create engine, tz-aware and callable defaults."""
 
 import pytest
+from uuid import uuid4
 
 from backend.config import settings
 from backend.database import Base, Business, DiscoveryRun, DiscoveryRunSourceStat, RunStatus
@@ -85,8 +86,9 @@ def test_all_nineteen_tables_in_metadata():
         "discovery_runs",
         "discovery_run_source_stats",
         "business_source_records",
+        "website_audits",
     }
-    assert len(names) == 19
+    assert len(names) == 20
     assert expected.issubset(names)
 
 
@@ -110,6 +112,29 @@ def test_business_dedup_key_columns_exist():
     assert Business.__table__.c.dedup_key_phone is not None
     assert Business.__table__.c.rating is not None
     assert Business.__table__.c.enrichment_version.default.arg == 1
+
+
+def test_website_audit_model_defaults():
+    from backend.database import AuditStatus, WebsiteAudit
+
+    audit = WebsiteAudit(business_id=uuid4(), audit_version="1.0")
+    assert audit.performance_score is None
+    status_default = WebsiteAudit.__table__.c.status.default.arg
+    assert status_default == AuditStatus.RUNNING
+    assert WebsiteAudit.__table__.c.cwv.default.arg is not None
+    assert WebsiteAudit.__table__.c.broken_links.default.arg is not None
+    assert WebsiteAudit.__table__.c.gaps.default.arg is not None
+    # History index (AUDT-04): newest-first per-lead queries rely on it.
+    index_names = {index.name for index in WebsiteAudit.__table__.indexes}
+    assert "ix_website_audits_business_started_at" in index_names
+
+
+def test_audit_config_flags_locked_defaults():
+    assert settings.audit_version == "1.0"
+    assert settings.audit_broken_link_sample == 20
+    assert settings.audit_external_link_cap == 5
+    assert settings.audit_html_max_bytes == 524288
+    assert settings.audit_max_render_seconds == 60
 
 
 def test_discovery_config_flags_locked_defaults():

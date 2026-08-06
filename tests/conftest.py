@@ -140,3 +140,23 @@ async def discovery_db(test_session):
     await test_session.execute(delete(Business))
     await test_session.commit()
     yield test_session
+
+
+@pytest.fixture
+async def audit_db(test_session):
+    """Clean the website_audits rows the audit tests write to (AUDT-04 history)."""
+    from sqlalchemy import delete
+
+    from backend.database import WebsiteAudit
+
+    await test_session.execute(delete(WebsiteAudit))
+    await test_session.commit()
+    yield test_session
+
+
+@pytest.fixture
+def browser_probe():
+    """True when the Playwright chromium executable launches (CI skip gate, D-33)."""
+    from backend.services.audits.renderer import browser_available
+
+    return browser_available()
