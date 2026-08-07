@@ -91,6 +91,7 @@ async def _events(test_session) -> list[OutboxEvent]:
     test_session.expire_all()
     result = await test_session.execute(
         select(OutboxEvent)
+        .where(OutboxEvent.topic == "audit.run")
         .order_by(OutboxEvent.created_at)
         .execution_options(populate_existing=True)
     )

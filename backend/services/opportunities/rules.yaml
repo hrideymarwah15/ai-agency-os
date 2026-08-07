@@ -1,0 +1,30 @@
+# Sample opportunity rules (automation + AI)
+
+automation_rules:
+  - name: "booking_automation"
+    industry: ["Restaurant", "Clinic", "Coaching", "Hospitality"]
+    pattern: "no_online_booking"
+    detection:
+      gaps_contains: ["missing_contact_form", "missing_cta", "no_direct_contact"]
+      tech_stack_excludes: ["calendly", "square", "toast", "opentable", "resy"]
+    recommendation: "Booking Automation (WhatsApp/Web)"
+    category: "automation"
+    roi_params:
+      time_saved_hours_monthly: 20
+      frequency_monthly: 1
+      impl_cost_estimate: 15000
+    confidence: 0.85
+
+ai_rules:
+  - name: "customer_support_bot"
+    signal: "no_chatbot"
+    detection:
+      tech_stack_excludes: ["intercom", "drift", "hubspot", "zendesk", "crisp", "tawk", "freshchat"]
+      gaps_contains: ["missing_contact_form"]
+    recommendation: "Customer Support Bot"
+    category: "ai"
+    roi_params:
+      time_saved_hours_monthly: 40
+      frequency_monthly: 1
+      impl_cost_estimate: 35000
+    confidence: 0.80

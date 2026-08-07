@@ -225,6 +225,30 @@ def _to_lead_view(
     }
 
 
+def _to_lead_view_with_opps(business: Business, found_at: datetime, lineage: list[dict]) -> dict:
+    """Extended lead view with tier, score, and top opportunities."""
+    base = _to_lead_view(business, found_at, lineage)
+    opps = getattr(business, "opportunities", []) or []
+    top3 = opps[:3]
+    badge_map = {"Hot": "hot", "Warm": "warm", "Cold": "cold", "Raw": "raw"}
+    return {
+        **base,
+        "tier": getattr(business, "tier", None) or "Raw",
+        "tier_badge": badge_map.get(getattr(business, "tier", None) or "Raw", "raw"),
+        "priority_score": int(getattr(business, "priority_score", 0) or 0),
+        "top_opportunities": [
+            {
+                "name": o.get("recommendation"),
+                "roi_display": f"₹{o.get('roi_monthly_inr', 0):,.0f}/mo",
+                "confidence": o.get("confidence"),
+            }
+            for o in top3
+        ],
+        "last_audit_date": base.get("found_date"),
+        "pipeline_stage": business.status.value,
+    }
+
+
 async def _lead_views(session: AsyncSession, columns: list[dict[str, str]]) -> list[dict[str, Any]]:
     """Qualified leads (limit 20), newest first by first-discovered run.
 
@@ -257,7 +281,7 @@ async def _lead_views(session: AsyncSession, columns: list[dict[str, str]]) -> l
             lineage_sets.setdefault(record.business_id, set()).add(record.source_id)
     short_names = {column["source_id"]: column["short_name"] for column in columns}
     return [
-        _to_lead_view(
+        _to_lead_view_with_opps(
             business,
             found_at,
             [

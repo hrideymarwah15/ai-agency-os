@@ -138,6 +138,11 @@ class Business(Base):
     tech_stack: Mapped[list] = mapped_column(JSON, default=list)
     audit_score: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     priority_score: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    # Opportunities and scoring fields (Phase 02.2)
+    opportunities: Mapped[dict] = mapped_column(JSON, default=dict)  # list of opportunity dicts
+    tier: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    score_breakdown: Mapped[dict] = mapped_column(JSON, default=dict)
+    last_scored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[BusinessStatus] = mapped_column(
         SQLEnum(BusinessStatus), default=BusinessStatus.DISCOVERED
     )

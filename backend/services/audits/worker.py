@@ -67,5 +67,12 @@ async def _process_one() -> bool:
             return True
         event.status = "DONE"
         event.processed_at = utc_now()
+        # Emit audit.completed event for opportunities rescore
+        session.add(
+            OutboxEvent(
+                topic="audit.completed",
+                payload={"audit_id": event.payload["audit_id"]},
+            )
+        )
         await session.commit()
         return True

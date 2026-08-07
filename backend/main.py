@@ -31,6 +31,7 @@ from backend.api import website_audits as website_audits_api
 from backend.auth.session import set_flash
 from backend.services.audits.worker import audit_worker
 from backend.services.discovery.worker import discovery_worker
+from backend.services.opportunities.worker import opportunity_worker
 from backend.services.scheduler import build_scheduler, write_heartbeat
 
 if TYPE_CHECKING:
@@ -83,10 +84,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # and website audits each poll their own topic, one job at a time.
     worker_task = asyncio.create_task(discovery_worker())
     audit_worker_task = asyncio.create_task(audit_worker())
+    opportunity_worker_task = asyncio.create_task(opportunity_worker())
     yield
     worker_task.cancel()
     audit_worker_task.cancel()
-    await asyncio.gather(worker_task, audit_worker_task, return_exceptions=True)
+    opportunity_worker_task.cancel()
+    await asyncio.gather(
+        worker_task, audit_worker_task, opportunity_worker_task, return_exceptions=True
+    )
     scheduler.shutdown(wait=False)
     await database.close_db()
 

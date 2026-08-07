@@ -108,33 +108,76 @@
 </section>
 <section class="section">
   <h2 class="section-title">Qualified leads</h2>
+  <!-- Filter bar -->
+  <form class="filter-bar" method="get">
+    <label class="visually-hidden" for="tier">Tier</label>
+    <select name="tier" id="tier" class="input" multiple>
+      <option value="" {% if not request.query_params.getlist('tier') %}selected{% endif %}>All tiers</option>
+      <option value="Hot" {% if 'Hot' in request.query_params.getlist('tier') %}selected{% endif %}>Hot</option>
+      <option value="Warm" {% if 'Warm' in request.query_params.getlist('tier') %}selected{% endif %}>Warm</option>
+      <option value="Cold" {% if 'Cold' in request.query_params.getlist('tier') %}selected{% endif %}>Cold</option>
+      <option value="Raw" {% if 'Raw' in request.query_params.getlist('tier') %}selected{% endif %}>Raw</option>
+    </select>
+    <label class="visually-hidden" for="industry">Industry</label>
+    <select name="industry" id="industry" class="input">
+      <option value="">All industries</option>
+      <!-- Industry options would be populated dynamically -->
+    </select>
+    <label class="visually-hidden" for="score_min">Min Score</label>
+    <input type="number" name="score_min" id="score_min" class="input" placeholder="Min score" min="0" max="100" value="{{ request.query_params.get('score_min', '') }}">
+    <label class="visually-hidden" for="sort">Sort</label>
+    <select name="sort" id="sort" class="input">
+      <option value="score" {% if request.query_params.get('sort') == 'score' %}selected{% endif %}>Score ↓</option>
+      <option value="roi" {% if request.query_params.get('sort') == 'roi' %}selected{% endif %}>ROI ↓</option>
+      <option value="recency" {% if request.query_params.get('sort') == 'recency' %}selected{% endif %}>Recent ↓</option>
+    </select>
+    <button type="submit" class="btn btn-secondary">Apply</button>
+    <a href="/discovery" class="btn btn-ghost">Clear filters</a>
+  </form>
   {% if leads %}
   <div class="table-scroll">
-    <table class="table" aria-label="Qualified leads">
+    <table class="table" aria-label="Qualified leads pipeline">
       <thead>
         <tr>
-          <th scope="col">Name</th>
-          <th scope="col">Industry</th>
-          <th scope="col">Location</th>
-          <th scope="col">Found via</th>
-          <th scope="col">Enrichment</th>
-          <th scope="col">Found</th>
+          <th scope="col">Lead</th>
+          <th scope="col">Tier</th>
+          <th scope="col">Score</th>
+          <th scope="col">Top Opportunity</th>
+          <th scope="col">Audit Status</th>
+          <th scope="col">Last Audit</th>
           <th scope="col">Details</th>
+          <th scope="col">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for lead in leads %}
         <tr>
-          <th scope="row">{{ lead.name }}</th>
-          <td>{{ lead.industry }}</td>
-          <td>{{ lead.location }}</td>
+          <th scope="row">
+            <div class="detail-list">
+              <span class="run-id">{{ lead.id }}</span>
+              <span>{{ lead.name }}</span>
+              <span class="muted">{{ lead.industry or '—' }}</span>
+              <span class="mono">{{ lead.location or '—' }}</span>
+            </div>
+          </th>
+          <td><span class="badge badge--tier-{{ lead.tier_badge }}">{{ lead.tier }}</span></td>
           <td>
-            {% for source in lead.lineage %}
-            <span class="badge badge--source">{{ source.short_name }}</span>
-            {% endfor %}
+            <div class="score-value">{{ lead.priority_score }}</div>
+            <div class="score-label">Score</div>
           </td>
-          <td class="num">{{ lead.enrichment_display }}</td>
-          <td class="num">{{ lead.found_date }}</td>
+          <td>
+            {% if lead.top_opportunities %}
+            <span class="opportunity-chip">{{ lead.top_opportunities[0].name }}</span>
+            <span class="roi-value">{{ lead.top_opportunities[0].roi_display }}</span>
+            {% else %}
+            <span class="muted">No opportunities detected</span>
+            {% endif %}
+          </td>
+          <td>
+            {% set audit_status = lead.pipeline_stage %}
+            <span class="badge badge--{{ audit_status|lower }}">{{ audit_status }}</span>
+          </td>
+          <td class="num">{{ lead.last_audit_date }}</td>
           <td>
             <details class="queue-details">
               <summary>View</summary>
@@ -151,17 +194,24 @@
                 <dd>{{ lead.review_count }}</dd>
                 <dt>Ratings</dt>
                 <dd>{{ lead.rating_display }}</dd>
+                <dt>Enrichment</dt>
+                <dd>{{ lead.enrichment_display }}</dd>
+                <dt>Found</dt>
+                <dd>{{ lead.found_date }}</dd>
                 <dt>Tech stack</dt>
                 <dd>{{ lead.tech_stack_display }}</dd>
               </dl>
             </details>
+          </td>
+          <td>
+            <a href="/website-audits/lead/{{ lead.id }}" class="btn btn-ghost">View Audit</a>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  <p class="table-note">Showing the most recent 20 leads. The full lead list arrives with the Next.js dashboard.</p>
+  <p class="table-note">Showing the most recent 50 leads.</p>
   {% else %}
   <div class="empty-state">
     <h2>No qualified leads yet</h2>
