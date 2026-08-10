@@ -1,0 +1,520 @@
+{% extends "base.html" %}
+{% block title %}Pricing Engine — AI Agency OS{% endblock %}
+{% block content %}
+{% if not owner %}
+<div class="alert alert-warning">
+  <p>You must be logged in as the agency owner to access pricing controls.</p>
+  <p><a href="/login">Login</a></p>
+</div>
+{% else %}
+<header class="page-header">
+  <h1>Pricing Engine</h1>
+  <p>Configure pricing rules, calculate prices, and view audit trail.</p>
+</header>
+
+<!-- Tabs for different sections -->
+<div class="tabs">
+  <button class="tab-button active" data-tab="editor">Pricing Rules Editor</button>
+  <button class="tab-button" data-tab="calculator">Price Calculator</button>
+  <button class="tab-button" data-tab="audit">Audit Trail</button>
+</div>
+
+<!-- Tab Content -->
+<div class="tab-content">
+
+  <!-- Pricing Rules Editor Tab -->
+  <div class="tab-pane active" id="editor-tab">
+    <section class="pricing-editor">
+      <h2>Pricing Rules Configuration</h2>
+      <p>Edit pricing configuration in real-time. Changes take effect immediately.</p>
+      
+      <!-- Factor Weights -->
+      <div class="editor-section">
+        <h3>Factor Weights</h3>
+        <p>Adjust how each factor influences the final price (must sum to 1.0)</p>
+        <table class="factor-weights-table">
+          <thead>
+            <tr>
+              <th>Factor</th>
+              <th>Weight</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Hours</td>
+              <td><input type="number" id="weight-hours" min="0" max="1" step="0.01" value="0.25"></td>
+              <td>Estimated hours of work</td>
+            </tr>
+            <tr>
+              <td>Complexity</td>
+              <td><input type="number" id="weight-complexity" min="0" max="1" step="0.01" value="0.20"></td>
+              <td>Project complexity level (1-5)</td>
+            </tr>
+            <tr>
+              <td>Market Rate</td>
+              <td><input type="number" id="weight-market-rate" min="0" max="1" step="0.01" value="0.15"></td>
+              <td>Prevailing market rate for similar services</td>
+            </tr>
+            <tr>
+              <td>Competition</td>
+              <td><input type="number" id="weight-competition" min="0" max="1" step="0.01" value="0.10"></td>
+              <td>Level of competition in the market</td>
+            </tr>
+            <tr>
+              <td>Industry</td>
+              <td><input type="number" id="weight-industry" min="0" max="1" step="0.01" value="0.10"></td>
+              <td>Industry sector multiplier</td>
+            </tr>
+            <tr>
+              <td>Company Size</td>
+              <td><input type="number" id="weight-size" min="0" max="1" step="0.01" value="0.10"></td>
+              <td>Size of the client company</td>
+            </tr>
+            <tr>
+              <td>Expected ROI</td>
+              <td><input type="number" id="weight-expected-roi" min="0" max="1" step="0.01" value="0.05"></td>
+              <td>Expected return on investment</td>
+            </tr>
+            <tr>
+              <td>Historical Close Rate</td>
+              <td><input type="number" id="weight-historical-close-rate" min="0" max="1" step="0.01" value="0.05"></td>
+              <td>Historical proposal close rate</td>
+            </tr>
+          </tbody>
+        </table>
+        <div id="weights-sum" class="weights-sum">Current sum: 1.00</div>
+      </div>
+
+      <!-- Service Packages (View Only for Now) -->
+      <div class="editor-section">
+        <h3>Service Packages</h3>
+        <p>Service packages are defined in the configuration and priced using scope matrices.</p>
+        <div class="service-packages-preview">
+          <h4>Website Packages</h4>
+          <ul>
+            <li><strong>Starter</strong>: Basic 5-page website with contact form and SEO setup</li>
+            <li><strong>Business</strong>: Full CMS website with blog and advanced features</li>
+            <li><strong>Premium</strong>: Enterprise website with custom development and optimization</li>
+          </ul>
+          <h4>Automation Packages</h4>
+          <ul>
+            <li><strong>Basic</strong>: Simple lead capture and email follow-up</li>
+            <li><strong>Medium</strong>: Advanced nurture campaigns and CRM integration</li>
+            <li><strong>Advanced</strong>: Predictive lead scoring and multi-channel automation</li>
+          </ul>
+          <h4>Chatbot Packages</h4>
+          <ul>
+            <li><strong>Starter</strong>: Basic FAQ bot with website integration</li>
+            <li><strong>Pro</strong>: AI-powered bot with CRM integration and booking capabilities</li>
+          </ul>
+          <h4>Custom AI Packages</h4>
+          <ul>
+            <li><strong>TimeAndMaterials</strong>: Custom AI development with hourly billing</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Dynamic Adjustments -->
+      <div class="editor-section">
+        <h3>Dynamic Adjustments</h3>
+        <p>Configurable discounts and promotions that can be applied to pricing.</p>
+        <div class="adjustments-toggle">
+          <label>
+            <input type="checkbox" id="toggle-volume-bundles" checked>
+            Volume Bundles (10-15% for 3+ projects)
+          </label>
+          <label>
+            <input type="checkbox" id="toggle-long-term-contracts" checked>
+            Long-term Contracts (6mo/12mo discounts)
+          </label>
+          <label>
+            <input type="checkbox" id="toggle-referral-partner" checked>
+            Referral Partner Discounts (15%)
+          </label>
+          <label>
+            <input type="checkbox" id="toggle-seasonal-promos" checked>
+            Seasonal Promotions (configurable)
+          </label>
+        </div>
+      </div>
+
+      <!-- Negotiation Limits -->
+      <div class="editor-section">
+        <h3>Negotiation Limits</h3>
+        <p>Constraints on pricing negotiations and discounts.</p>
+        <table class="negotiation-limits-table">
+          <tbody>
+            <tr>
+              <td>Can Discount</td>
+              <td><input type="checkbox" id="negotiation-can-discount" checked></td>
+              <td>Whether discounts can be applied</td>
+            </tr>
+            <tr>
+              <td>Max Discount %</td>
+              <td><input type="number" id="negotiation-max-discount-pct" min="0" max="100" value="25"></td>
+              <td>Maximum discount percentage allowed</td>
+            </tr>
+            <tr>
+              <td>Can Bundle</td>
+              <td><input type="checkbox" id="negotiation-can-bundle" checked></td>
+              <td>Whether services can be bundled</td>
+            </tr>
+            <tr>
+              <td>Bundle Discount %</td>
+              <td><input type="number" id="negotiation-bundle-discount-pct" min="0" max="100" value="15"></td>
+              <td>Discount percentage for bundled services</td>
+            </tr>
+            <tr>
+              <td>Can Extend Timeline</td>
+              <td><input type="checkbox" id="negotiation-can-extend-timeline" checked></td>
+              <td>Whether project timelines can be extended</td>
+            </tr>
+            <tr>
+              <td>Max Timeline Extension (weeks)</td>
+              <td><input type="number" id="negotiation-max-timeline-extension" min="0" value="4"></td>
+              <td>Maximum weeks timeline can be extended</td>
+            </tr>
+            <tr>
+              <td>Can Add Maintenance</td>
+              <td><input type="checkbox" id="negotiation-can-add-maintenance" checked></td>
+              <td>Whether ongoing maintenance can be added</td>
+            </tr>
+            <tr>
+              <td>Maintenance Discount %</td>
+              <td><input type="number" id="negotiation-maintenance-discount-pct" min="0" max="100" value="20"></td>
+              <td>Discount percentage for maintenance add-ons</td>
+            </tr>
+            <tr>
+              <td>Requires Approval Above</td>
+              <td><input type="number" id="negotiation-requires-approval-above" min="0" value="100000"></td>
+              <td>Amount above which owner approval is required (INR)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="editor-actions">
+        <button class="btn btn-primary" id="save-pricing-config">
+          Save Configuration
+        </button>
+        <button class="btn btn-secondary" id="reset-pricing-config">
+          Reset to Defaults
+        </button>
+        <span id="config-status" class="config-status"></span>
+      </div>
+    </section>
+  </div>
+
+  <!-- Price Calculator Tab -->
+  <div class="tab-pane" id="calculator-tab">
+    <section class="price-calculator">
+      <h2>Price Calculator</h2>
+      <p>Calculate prices for different service packages and configurations.</p>
+      
+      <div class="calculator-form">
+        <div class="form-row">
+          <label for="calc-service-type">Service Type:</label>
+          <select id="calc-service-type">
+            <option value="website">Website</option>
+            <option value="automations">Automations</option>
+            <option value="chatbots">Chatbots</option>
+            <option value="custom_ai">Custom AI</option>
+          </select>
+        </div>
+        
+        <div class="form-row">
+          <label for="calc-package">Package:</label>
+          <select id="calc-package">
+            <option value="Starter">Starter</option>
+            <option value="Business">Business</option>
+            <option value="Premium">Premium</option>
+          </select>
+        </div>
+        
+        <div class="form-row">
+          <label for="calc-hours">Hours:</label>
+          <input type="number" id="calc-hours" min="1" value="40">
+        </div>
+        
+        <div class="form-row">
+          <label for="calc-complexity">Complexity (1-5):</label>
+          <input type="number" id="calc-complexity" min="1" max="5" value="3">
+        </div>
+        
+        <div class="form-row">
+          <label for="calc-market-rate">Market Rate:</label>
+          <input type="number" id="calc-market-rate" min="1000" value="50000">
+        </div>
+        
+        <div class="form-row">
+          <label for="calc-competition">Competition (1-5):</label>
+          <input type="number" id="calc-competition" min="1" max="5" value="2">
+        </div>
+        
+        <div class="form-row">
+          <label for="calc-industry">Industry:</label>
+          <select id="calc-industry">
+            <option value="technology">Technology</option>
+            <option value="healthcare">Healthcare</option>
+            <option value="finance">Finance</option>
+            <option value="retail">Retail</option>
+            <option value="manufacturing">Manufacturing</option>
+          </select>
+        </div>
+        
+        <div class="form-row">
+          <label for="calc-size">Company Size:</label>
+          <select id="calc-size">
+            <option value="micro">Micro (1-10)</option>
+            <option value="small">Small (11-50)</option>
+            <option value="medium">Medium (51-200)</option>
+            <option value="large">Large (201-1000)</option>
+            <option value="enterprise">Enterprise (1000+)</option>
+          </select>
+        </div>
+        
+        <div class="form-row">
+          <label for="calc-expected-roi">Expected ROI (%):</label>
+          <input type="number" id="calc-expected-roi" min="0" value="300">
+        </div>
+        
+        <div class="form-row">
+          <label for="calc-historical-close-rate">Historical Close Rate (0-1):</label>
+          <input type="number" id="calc-historical-close-rate" min="0" max="1" step="0.01" value="0.3">
+        </div>
+      </div>
+      
+      <div class="calculator-actions">
+        <button class="btn btn-primary" id="calculate-price">
+          Calculate Price
+        </button>
+      </div>
+      
+      <div class="calculation-result" id="calculation-result">
+        <!-- Result will appear here -->
+      </div>
+    </section>
+  </div>
+
+  <!-- Audit Trail Tab -->
+  <div class="tab-pane" id="audit-tab">
+    <section class="pricing-audit">
+      <h2>Pricing Audit Trail</h2>
+      <p>View history of all pricing calculations performed.</p>
+      
+      <div class="audit-controls">
+        <button class="btn btn-outline" id="refresh-audit">
+          Refresh
+        </button>
+        <span id="audit-count" class="audit-count">Loading...</span>
+      </div>
+      
+      <div class="audit-table-container">
+        <table class="audit-table" id="audit-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Package</th>
+              <th>Service Type</th>
+              <th>Hours</th>
+              <th>Recommended Price</th>
+              <th>Min Price</th>
+              <th>Profit Margin</th>
+              <th>Correlation ID</th>
+            </tr>
+          </thead>
+          <tbody id="audit-table-body">
+            <!-- Rows will be populated here -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+</div>
+
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+// Pricing Editor JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+  // Tab switching
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabPanes = document.querySelectorAll('.tab-pane');
+  
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const tabId = button.getAttribute('data-tab');
+      
+      // Update buttons
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+      
+      // Update panes
+      tabPanes.forEach(pane => pane.classList.remove('active'));
+      document.getElementById(`${tabId}-tab`).classList.add('active');
+    });
+  });
+  
+  // Factor weights validation
+  const weightInputs = document.querySelectorAll('.factor-weights-table input[type="number"]');
+  const weightsSumDisplay = document.getElementById('weights-sum');
+  
+  function updateWeightsSum() {
+    let sum = 0;
+    weightInputs.forEach(input => {
+      sum += parseFloat(input.value) || 0;
+    });
+    weightsSumDisplay.textContent = `Current sum: ${sum.toFixed(2)}`;
+    weightsSumDisplay.style.color = sum === 1.0 ? 'green' : 'red';
+  }
+  
+  weightInputs.forEach(input => {
+    input.addEventListener('input', updateWeightsSum);
+  });
+  
+  // Initialize sum
+  updateWeightsSum();
+  
+  // Price calculator
+  const calculateBtn = document.getElementById('calculate-price');
+  const calculationResult = document.getElementById('calculation-result');
+  
+  calculateBtn.addEventListener('click', async () => {
+    try {
+      // Gather form data
+      const serviceType = document.getElementById('calc-service-type').value;
+      const packageName = document.getElementById('calc-package').value;
+      const hours = parseFloat(document.getElementById('calc-hours').value);
+      const complexity = parseFloat(document.getElementById('calc-complexity').value);
+      const marketRate = parseFloat(document.getElementById('calc-market-rate').value);
+      const competition = parseFloat(document.getElementById('calc-competition').value);
+      const industry = document.getElementById('calc-industry').value;
+      const size = document.getElementById('calc-size').value;
+      const expectedRoi = parseFloat(document.getElementById('calc-expected-roi').value);
+      const historicalCloseRate = parseFloat(document.getElementById('calc-historical-close-rate').value);
+      
+      // Validate inputs
+      if (isNaN(hours) || hours <= 0) throw new Error('Hours must be greater than 0');
+      if (isNaN(complexity) || complexity < 1 || complexity > 5) throw new Error('Complexity must be between 1 and 5');
+      if (isNaN(marketRate) || marketRate <= 0) throw new Error('Market rate must be greater than 0');
+      if (isNaN(competition) || competition < 1 || competition > 5) throw new Error('Competition must be between 1 and 5');
+      if (isNaN(expectedRoi) || expectedRoi < 0) throw new Error('Expected ROI must be >= 0');
+      if (isNaN(historicalCloseRate) || historicalCloseRate < 0 || historicalCloseRate > 1) throw new Error('Historical close rate must be between 0 and 1');
+      
+      // Show loading state
+      calculationResult.innerHTML = '<div class="loading">Calculating...</div>';
+      
+      // Call API
+      const response = await fetch('/api/v1/pricing/calculate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          package_name: packageName,
+          service_type: serviceType.toUpperCase(), // API expects uppercase
+          hours: hours,
+          complexity: complexity,
+          market_rate: marketRate,
+          competition: competition,
+          industry: industry,
+          size: size.toUpperCase(), // API expects uppercase
+          expected_roi: expectedRoi,
+          historical_close_rate: historicalCloseRate
+        }),
+        credentials: 'include' // Include cookies for auth
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      // Display result
+      calculationResult.innerHTML = `
+        <div class="result-card">
+          <h3>Calculation Result</h3>
+          <div class="result-grid">
+            <div><strong>Recommended Price:</strong> ₹${result.recommended_price.toLocaleString()}</div>
+            <div><strong>Minimum Price:</strong> ₹${result.minimum_price.toLocaleString()}</div>
+            <div><strong>Target Price:</strong> ₹${result.target_price.toLocaleString()}</div>
+            <div><strong>Max Discount:</strong> ${result.max_discount_pct}%</div>
+            <div><strong>Profit Margin:</strong> ${result.profit_margin_pct}%</div>
+          </div>
+          <div class="result-details">
+            <strong>Negotiation Limits:</strong>
+            <ul>
+              <li>Can Discount: ${result.negotiation_limits.can_discount ? 'Yes' : 'No'}</li>
+              <li>Max Discount: ${result.negotiation_limits.max_discount_pct}%</li>
+              <li>Can Bundle: ${result.negotiation_limits.can_bundle ? 'Yes' : 'No'}</li>
+              <li>Bundle Discount: ${result.negotiation_limits.bundle_discount_pct}%</li>
+              <li>Can Extend Timeline: ${result.negotiation_limits.can_extend_timeline ? 'Yes' : 'No'}</li>
+              <li>Max Timeline Extension: ${result.negotiation_limits.max_timeline_extension_weeks} weeks</li>
+              <li>Can Add Maintenance: ${result.negotiation_limits.can_add_maintenance ? 'Yes' : 'No'}</li>
+              <li>Maintenance Discount: ${result.negotiation_limits.maintenance_discount_pct}%</li>
+              <li>Requires Approval Above: ₹${result.negotiation_limits.requires_approval_above.toLocaleString()}</li>
+            </ul>
+          </div>
+        </div>
+      `;
+    } catch (error) {
+      calculationResult.innerHTML = `<div class="error">Calculation failed: ${error.message}</div>`;
+    }
+  });
+  
+  // Audit trail loading (simplified - would normally fetch from API)
+  async function loadAuditTrail() {
+    try {
+      const response = await fetch('/api/v1/pricing/runs?limit=10', {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load audit trail: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const auditTableBody = document.getElementById('audit-table-body');
+      const auditCount = document.getElementById('audit-count');
+      
+      auditCount.textContent = `${data.runs.length} pricing runs`;
+      
+      if (data.runs.length === 0) {
+        auditTableBody.innerHTML = '<tr><td colspan="8">No pricing calculations found</td></tr>';
+        return;
+      }
+      
+      auditTableBody.innerHTML = data.runs.map(run => {
+        const date = new Date(run.created_at);
+        return `
+          <tr>
+            <td>${date.toLocaleString()}</td>
+            <td>${run.input_summary?.package_name || 'N/A'}</td>
+            <td>${run.input_summary?.service_type || 'N/A'}</td>
+            <td>${run.input_summary?.hours || 'N/A'} hrs</td>
+            <td>�₹${(run.output_summary?.recommended_price || 0).toLocaleString()}</td>
+            <td>�₹${(run.output_summary?.minimum_price || 0).toLocaleString()}</td>
+            <td>${(run.output_summary?.profit_margin_pct || 0).toFixed(1)}%</td>
+            <td>${run.correlation_id}</td>
+          </tr>
+        `).join('');
+    } catch (error) {
+      console.error('Failed to load audit trail:', error);
+      document.getElementById('audit-table-body').innerHTML = 
+        `<tr><td colspan="8">Error loading audit trail</td></tr>`;
+      document.getElementById('audit-count').textContent = 'Error';
+    }
+  }
+  
+  // Load audit trail on init
+  loadAuditTrail();
+  
+  // Refresh button
+  document.getElementById('refresh-audit').addEventListener('click', loadAuditTrail);
+});
+</script>
+{% endblock %}
