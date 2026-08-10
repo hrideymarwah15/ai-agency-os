@@ -1,0 +1,47 @@
+sequences:
+  cold_email_5touch:
+    channel: EMAIL
+    steps:
+      - step: 1, delay_days: 0, template: "cold_email_1_initial", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "continue"}
+      - step: 2, delay_days: 3, template: "cold_email_2_followup", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "continue"}
+      - step: 3, delay_days: 7, template: "cold_email_3_value", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "continue"}
+      - step: 4, delay_days: 10, template: "cold_email_4_soft_breakup", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "continue"}
+      - step: 5, delay_days: 14, template: "cold_email_5_final", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "stop"}
+  warm_email_3touch:
+    channel: EMAIL
+    steps:
+      - step: 1, delay_days: 0, template: "warm_email_1_checkin", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "continue"}
+      - step: 2, delay_days: 4, template: "warm_email_2_value", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "continue"}
+      - step: 3, delay_days: 8, template: "warm_email_3_offer", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "stop"}
+  linkedin_sequence:
+    channel: LINKEDIN
+    steps:
+      - step: 1, delay_days: 0, template: "linkedin_1_connection", action: "connection_request"
+      - step: 2, delay_days: 2, template: "linkedin_2_message", action: "message", condition: "connection_accepted"
+      - step: 3, delay_days: 5, template: "linkedin_3_followup", action: "message"
+
+# Template mapping - maps template names to actual Jinja2 templates
+# These will be created in Plan 03
+templates:
+  cold_email_1_initial: "outreach/cold_email_1_initial.j2"
+  cold_email_2_followup: "outreach/cold_email_2_followup.j2"
+  cold_email_3_value: "outreach/cold_email_3_value.j2"
+  cold_email_4_soft_breakup: "outreach/cold_email_4_soft_breakup.j2"
+  cold_email_5_final: "outreach/cold_email_5_final.j2"
+  warm_email_1_checkin: "outreach/warm_email_1_checkin.j2"
+  warm_email_2_value: "outreach/warm_email_2_value.j2"
+  warm_email_3_offer: "outreach/warm_email_3_offer.j2"
+  linkedin_1_connection: "outreach/linkedin_1_connection.j2"
+  linkedin_2_message: "outreach/linkedin_2_message.j2"
+  linkedin_3_followup: "outreach/linkedin_3_followup.j2"
+
+# Channel selection logic
+channel_selection:
+  linkedin_if: "decision_maker_profile_exists"
+  else: "email"
+
+# Global settings
+global_settings:
+  max_daily_sends_per_channel: 100
+  default_from_email: "outreach@yourdomain.com"
+  unsubscribe_link_template: "https://yourapi.com/api/v1/outreach/unsubscribe?token={{unsubscribe_token}}"

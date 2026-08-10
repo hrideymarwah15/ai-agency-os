@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     whatsapp_phone_number_id: str = Field(default="", alias="WHATSAPP_PHONE_NUMBER_ID")
     whatsapp_verify_token: str = Field(default="", alias="WHATSAPP_VERIFY_TOKEN")
 
+    # LinkedIn
+    linkedin_client_id: str = Field(default="", alias="LINKEDIN_CLIENT_ID")
+    linkedin_client_secret: str = Field(default="", alias="LINKEDIN_CLIENT_SECRET")
+    linkedin_redirect_uri: str = Field(default="", alias="LINKEDIN_REDIRECT_URI")
+
     # Payments
     razorpay_key_id: str = Field(default="", alias="RAZORPAY_KEY_ID")
     razorpay_key_secret: str = Field(default="", alias="RAZORPAY_KEY_SECRET")
