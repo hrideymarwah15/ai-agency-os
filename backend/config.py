@@ -348,6 +348,9 @@ class Settings(BaseSettings):
         default={"Excellent": 0.8, "Good": 0.9, "Average": 1.0, "Poor": 1.25, "Critical": 1.5}
     )
 
+    # Pricing Configuration
+    PRICING_CONFIG_PATH: str = Field(default="backend/config/pricing.yaml", alias="PRICING_CONFIG_PATH")
+
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parent.parent / ".env",
         env_file_encoding="utf-8",

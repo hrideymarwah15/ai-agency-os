@@ -1,0 +1,266 @@
+# Pricing Configuration for AI Agency OS
+# Hot-reloadable configuration for pricing engine
+
+factor_weights:
+  hours: 0.25
+  complexity: 0.20
+  market_rate: 0.15
+  competition: 0.10
+  industry: 0.10
+  size: 0.10
+  expected_roi: 0.05
+  historical_close_rate: 0.05
+
+service_packages:
+  website:
+    Starter:
+      scope_matrix:
+        - item: "Landing Page"
+          hours: 8
+          complexity_tier: "basic"
+        - item: "Contact Form"
+          hours: 4
+          complexity_tier: "basic"
+        - item: "Basic SEO Setup"
+          hours: 6
+          complexity_tier: "basic"
+        - item: "Mobile Responsive"
+          hours: 6
+          complexity_tier: "basic"
+        - item: "Analytics Integration"
+          hours: 4
+          complexity_tier: "basic"
+      base_rate: 750  # INR per hour
+    Business:
+      scope_matrix:
+        - item: "Custom Design (5 pages)"
+          hours: 20
+          complexity_tier: "intermediate"
+        - item: "CMS Integration"
+          hours: 15
+          complexity_tier: "intermediate"
+        - item: "Blog System"
+          hours: 10
+          complexity_tier: "intermediate"
+        - item: "Advanced SEO"
+          hours: 10
+          complexity_tier: "intermediate"
+        - item: "Speed Optimization"
+          hours: 8
+          complexity_tier: "intermediate"
+        - item: "Contact Form & Validation"
+          hours: 6
+          complexity_tier: "basic"
+        - item: "Analytics & Goals Setup"
+          hours: 6
+          complexity_tier: "basic"
+      base_rate: 1000  # INR per hour
+    Premium:
+      scope_matrix:
+        - item: "Custom Design (10+ pages)"
+          hours: 30
+          complexity_tier: "advanced"
+        - item: "Custom CMS Development"
+          hours: 25
+          complexity_tier: "advanced"
+        - item: "Blog with CMS"
+          hours: 15
+          complexity_tier: "intermediate"
+        - item: "Enterprise SEO"
+          hours: 20
+          complexity_tier: "advanced"
+        - item: "Performance Optimization"
+          hours: 15
+          complexity_tier: "advanced"
+        - item: "E-commerce Integration"
+          hours: 20
+          complexity_tier: "advanced"
+        - item: "Multi-language Support"
+          hours: 15
+          complexity_tier: "intermediate"
+        - item: "Advanced Analytics"
+          hours: 10
+          complexity_tier: "intermediate"
+      base_rate: 1500  # INR per hour
+  automations:
+    Basic:
+      scope_matrix:
+        - item: "Lead Capture Form"
+          hours: 6
+          complexity_tier: "basic"
+        - item: "Email Welcome Sequence"
+          hours: 8
+          complexity_tier: "basic"
+        - item: "Basic Contact Management"
+          hours: 6
+          complexity_tier: "basic"
+        - item: "Simple Automation Rules (5)"
+          hours: 10
+          complexity_tier: "basic"
+      base_rate: 800  # INR per hour
+    Medium:
+      scope_matrix:
+        - item: "Advanced Lead Scoring"
+          hours: 12
+          complexity_tier: "intermediate"
+        - item: "Email Nurture Campaigns (3)"
+          hours: 15
+          complexity_tier: "intermediate"
+        - item: "CRM Integration"
+          hours: 12
+          complexity_tier: "intermediate"
+        - item: "Workflow Automation (10 rules)"
+          hours: 20
+          complexity_tier: "intermediate"
+        - item: "Custom Reporting Dashboard"
+          hours: 10
+          complexity_tier: "intermediate"
+        - item: "A/B Testing Setup"
+          hours: 8
+          complexity_tier: "intermediate"
+      base_rate: 1000  # INR per hour
+    Advanced:
+      scope_matrix:
+        - item: "Predictive Lead Scoring"
+          hours: 18
+          complexity_tier: "advanced"
+        - item: "Multi-channel Nurture (Email, SMS, WhatsApp)"
+          hours: 25
+          complexity_tier: "advanced"
+        - item: "Enterprise CRM Integration"
+          hours: 20
+          complexity_tier: "advanced"
+        - item: "Complex Workflow Automation (25+ rules)"
+          hours: 35
+          complexity_tier: "advanced"
+        - item: "Custom Analytics & BI Dashboard"
+          hours: 20
+          complexity_tier: "advanced"
+        - item: "API Integration (3rd party services)"
+          hours: 15
+          complexity_tier: "intermediate"
+        - item: "Machine Learning Lead Prediction"
+          hours: 20
+          complexity_tier: "advanced"
+      base_rate: 1300  # INR per hour
+  chatbots:
+    Starter:
+      scope_matrix:
+        - item: "Basic FAQ Bot (10 questions)"
+          hours: 8
+          complexity_tier: "basic"
+        - item: "Website Integration"
+          hours: 4
+          complexity_tier: "basic"
+        - item: "Simple Conversation Flow"
+          hours: 6
+          complexity_tier: "basic"
+        - item: "Basic Analytics Dashboard"
+          hours: 4
+          complexity_tier: "basic"
+      base_rate: 900  # INR per hour
+    Pro:
+      scope_matrix:
+        - item: "AI-Powered Contextual Bot"
+          hours: 20
+          complexity_tier: "advanced"
+        - item: "Integration with CRM & Calendar"
+          hours: 15
+          complexity_tier: "intermediate"
+        - item: "Multi-turn Conversation Memory"
+          hours: 12
+          complexity_tier: "intermediate"
+        - item: "Lead Qualification & Scoring"
+          hours: 10
+          complexity_tier: "intermediate"
+        - item: "Booking & Payment Integration"
+          hours: 12
+          complexity_tier: "intermediate"
+        - item: "Custom Analytics Dashboard"
+          hours: 10
+          complexity_tier: "intermediate"
+        - item: "A/B Testing for Conversation Flows"
+          hours: 8
+          complexity_tier: "intermediate"
+      base_rate: 1200  # INR per hour
+  custom_ai:
+    TimeAndMaterials:
+      scope_matrix:
+        - item: "Requirements Gathering & Analysis"
+          hours: 16
+          complexity_tier: "intermediate"
+        - item: "Solution Architecture Design"
+          hours: 20
+          complexity_tier: "advanced"
+        - item: "Data Pipeline Setup"
+          hours: 24
+          complexity_tier: "advanced"
+        - item: "Model Selection & Prototyping"
+          hours: 20
+          complexity_tier: "advanced"
+        - item: "API Development & Integration"
+          hours: 30
+          complexity_tier: "intermediate"
+        - item: "User Interface Development"
+          hours: 30
+          complexity_tier: "intermediate"
+        - item: "Testing & Quality Assurance"
+          hours: 20
+          complexity_tier: "intermediate"
+        - item: "Deployment & Documentation"
+          hours: 16
+          complexity_tier: "basic"
+      base_rate: 1800  # INR per hour
+
+dynamic_adjustments:
+  volume_bundles:
+    enabled: true
+    tiers:
+      - min_quantity: 3
+        discount_percent: 10
+      - min_quantity: 6
+        discount_percent: 15
+      - min_quantity: 10
+        discount_percent: 20
+  long_term_contracts:
+    enabled: true
+    terms:
+      - duration_months: 6
+        discount_percent: 10
+      - duration_months: 12
+        discount_percent: 20
+      - duration_months: 24
+        discount_percent: 30
+  referral_partner_discounts:
+    enabled: true
+    discount_percent: 15  # For referred clients
+  seasonal_promos:
+    enabled: true
+    # These would be activated via date ranges in a real implementation
+    # For now, they're configurable toggles
+    winter_promo:
+      enabled: false
+      discount_percent: 15
+    summer_promo:
+      enabled: false
+      discount_percent: 10
+    holiday_promo:
+      enabled: false
+      discount_percent: 20
+
+negotiation_limits:
+  can_discount: true
+  max_discount_pct: 25
+  can_bundle: true
+  bundle_discount_pct: 15
+  can_extend_timeline: true
+  max_timeline_extension_weeks: 4
+  can_add_maintenance: true
+  maintenance_discount_pct: 20
+  requires_approval_above: 100000  # INR
+
+base_rates:  # Fallback base rates if service_type not found in service_packages
+  website: 1000
+  automations: 800
+  chatbots: 900
+  custom_ai: 1800
