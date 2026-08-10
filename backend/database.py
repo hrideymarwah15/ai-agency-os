@@ -619,6 +619,52 @@ class WebsiteAudit(Base):
 
 
 # ============================================
+# Pricing Models
+# ============================================
+
+class PricingRun(Base):
+    """Pricing calculation audit trail."""
+    
+    __tablename__ = "pricing_runs"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    correlation_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    input_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    output_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    package_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    service_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    status: Mapped[str] = mapped_column(
+        String(20), 
+        default="PENDING",
+        nullable=False
+    )  # PENDING/COMPLETED/FAILED
+
+    __table_args__ = (
+        Index("ix_pricing_runs_correlation_id", "correlation_id"),
+        Index("ix_pricing_runs_package_name", "package_name"),
+        Index("ix_pricing_runs_created_at", "created_at"),
+    )
+
+
+class PricingRuleVersion(Base):
+    """Versioned snapshot of pricing rules for audit trail."""
+    
+    __tablename__ = "pricing_rule_versions"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    config_snapshot_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False, default="system")
+
+    __table_args__ = (
+        Index("ix_pricing_rule_versions_created_at", "created_at"),
+        Index("ix_pricing_rule_versions_version", "version"),
+    )
+
+
+# ============================================
 # Database Engine & Session
 # ============================================
 engine: AsyncEngine | None = None
