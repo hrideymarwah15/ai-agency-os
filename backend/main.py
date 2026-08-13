@@ -28,6 +28,7 @@ from backend.api import auth as auth_api
 from backend.api import discovery as discovery_api
 from backend.api import unsubscribe as unsubscribe_api
 from backend.api import website_audits as website_audits_api
+from backend.api import proposals as proposals_api
 from backend.api import pricing as pricing_api
 from backend.auth.session import set_flash
 from backend.services.audits.worker import audit_worker
@@ -112,6 +113,7 @@ app.include_router(audit_api.router)
 app.include_router(discovery_api.router)
 app.include_router(website_audits_api.router)
 app.include_router(pricing_api.router)
+app.include_router(proposals_api.router)
 # Public by design (CMP-04): no Depends(get_current_owner) on the unsubscribe route.
 app.include_router(unsubscribe_api.router)
 

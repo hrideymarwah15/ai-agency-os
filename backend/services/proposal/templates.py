@@ -40,7 +40,7 @@ class ProposalTemplateEngine:
     @staticmethod
     def _service_key(service_type: str | Any) -> str:
         value = getattr(service_type, "value", service_type)
-        return str(value).lower().replace("ai_chatbot", "chatbot").replace("internal_ai", "custom_ai")
+        return (str(value).lower().replace("ai_chatbot", "chatbot").replace("internal_ai", "custom_ai").replace("automations", "automation"))
 
     def load_component(self, block: ComponentBlock | str, service_type: str | Any = "website"):
         """Load a service-specific component when present, otherwise its base block."""

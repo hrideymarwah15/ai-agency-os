@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Proposal builder · {{ proposal.package_name }}{% endblock %}
+{% block content %}
+<header class="proposal-builder__header"><div><p class="eyebrow">Proposal builder</p><h1>{{ proposal.package_name }}</h1><p>Version {{ proposal.version }} · {{ proposal.status.value }}</p></div>
+<div class="proposal-actions"><button class="btn" data-action="approve">Approve</button><button class="btn btn-primary" data-action="send">Queue delivery</button></div></header>
+<div class="proposal-builder" data-proposal-id="{{ proposal.id }}">
+  <aside class="proposal-sections" aria-label="Proposal sections"><h2>Sections</h2><ol>
+  {% for key in ['executive_summary','audit_report','opportunity_analysis','scope','timeline','pricing','faqs','testimonials','terms','next_steps'] %}<li><a href="#preview" data-section="{{ key }}"><span class="status-dot" aria-hidden="true"></span>{{ key | replace('_',' ') | title }}</a></li>{% endfor %}</ol>
+  <label><input type="checkbox" id="variable-highlights"> Highlight source variables</label></aside>
+  <section class="proposal-preview" id="preview"><h2 class="sr-only">Live preview</h2><iframe title="Proposal live preview" src="/api/v1/proposals/{{ proposal.id }}/html"></iframe></section>
+  <aside class="proposal-pricing"><h2>Pricing</h2><p class="proposal-price">{{ proposal.pricing.get('recommended_price', '—') }}</p><p>Margin {{ proposal.pricing.get('profit_margin_pct', '—') }}%</p><p>Maximum discount {{ proposal.pricing.get('max_discount_pct', '—') }}%</p>
+  <label for="section-content">Selected section HTML</label><textarea id="section-content" rows="12"></textarea><button class="btn" data-action="save">Save section</button>
+  <h3>Version history</h3><select aria-label="Version history">{% for item in proposal.version_history %}<option>v{{ item.version }} · {{ item.section }}</option>{% else %}<option>Current version</option>{% endfor %}</select></aside>
+</div>
+<dialog id="proposal-confirm"><form method="dialog"><h2>Confirm action</h2><p id="confirm-copy"></p><button value="cancel">Cancel</button><button value="confirm" class="btn btn-primary">Confirm</button></form></dialog>
+<script>
+const root=document.querySelector('[data-proposal-id]'), id=root.dataset.proposalId, frame=document.querySelector('iframe'); let section='executive_summary';
+document.querySelectorAll('[data-section]').forEach(a=>a.addEventListener('click',()=>{section=a.dataset.section; fetch(`/api/v1/proposals/${id}`).then(r=>r.json()).then(p=>document.querySelector('#section-content').value=p.section_html[section]||'');}));
+async function action(name){const dialog=document.querySelector('#proposal-confirm'); document.querySelector('#confirm-copy').textContent=name==='send'?'Queue the approved proposal for durable delivery?':'Approve this version and enqueue contract generation?'; dialog.showModal(); dialog.addEventListener('close',async()=>{if(dialog.returnValue==='confirm'){const r=await fetch(`/api/v1/proposals/${id}/${name}`,{method:'POST'}); if(!r.ok) alert((await r.json()).detail); else location.reload();}},{once:true});}
+document.querySelector('[data-action="approve"]').onclick=()=>action('approve'); document.querySelector('[data-action="send"]').onclick=()=>action('send');
+document.querySelector('[data-action="save"]').onclick=async()=>{const content=document.querySelector('#section-content').value; const r=await fetch(`/api/v1/proposals/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({section,content})}); if(r.ok) frame.contentWindow.location.reload(); else alert((await r.json()).detail);};
+document.querySelector('#variable-highlights').onchange=e=>frame.classList.toggle('show-variables',e.target.checked);
+</script>
+{% endblock %}
