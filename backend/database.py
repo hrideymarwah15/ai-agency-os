@@ -62,6 +62,7 @@ class BusinessStatus(str, enum.Enum):
 
 class ProposalStatus(str, enum.Enum):
     DRAFT = "DRAFT"
+    APPROVED = "APPROVED"
     SENT = "SENT"
     UNDER_NEGOTIATION = "UNDER_NEGOTIATION"
     ACCEPTED = "ACCEPTED"
@@ -225,9 +226,43 @@ class Proposal(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     negotiation_history: Mapped[list] = mapped_column(JSON, default=list)
+    # Structured proposal document (PROP-01/02). JSON keeps the section contract
+    # extensible while the legacy scalar fields remain available to workflows.
+    executive_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    website_audit: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    opportunity_analysis: Mapped[list] = mapped_column(JSONB, default=list)
+    scope_of_work: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    timeline: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    pricing: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    faqs: Mapped[list] = mapped_column(JSONB, default=list)
+    testimonials: Mapped[list] = mapped_column(JSONB, default=list)
+    terms: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    next_steps: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    negotiation_rounds: Mapped[list] = mapped_column(JSONB, default=list)
+    final_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    owner_approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    owner_approved_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    generated_by: Mapped[str] = mapped_column(String(100), default="proposal-generator")
+    generation_time_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    full_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    section_html: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    meeting_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    version_history: Mapped[list] = mapped_column(JSONB, default=list)
+    client_access_token_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    client_access_token_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+    __table_args__ = (
+        Index("ix_proposals_business_id", "business_id"),
+        Index("ix_proposals_status", "status"),
+        Index("ix_proposals_created_at", "created_at"),
     )
 
 

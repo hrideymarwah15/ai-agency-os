@@ -1,0 +1,1 @@
+<section class="proposal-section" id="scope"><h2>Scope of work</h2><ul>{% for item in scope.deliverables %}<li>{{ item }}</li>{% endfor %}</ul><p><strong>Acceptance:</strong> {{ scope.acceptance_criteria | join(', ') }}</p><p><strong>Out of scope:</strong> {{ scope.out_of_scope | join(', ') }}</p></section>

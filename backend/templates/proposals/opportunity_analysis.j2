@@ -1,0 +1,2 @@
+<section class="proposal-section" id="opportunity-analysis"><h2>Opportunity analysis</h2>
+<table><tr><th>Opportunity</th><th>Expected ROI</th><th>Payback</th></tr>{% for item in opportunities %}<tr><td>{{ item.title or item.name }}</td><td>{{ item.roi_estimate or item.roi_monthly_inr or '—' }}</td><td>{{ item.payback_months | default('—') }}</td></tr>{% endfor %}</table></section>

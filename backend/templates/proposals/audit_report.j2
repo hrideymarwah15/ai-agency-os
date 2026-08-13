@@ -1,0 +1,4 @@
+<section class="proposal-section" id="audit-report"><h2>Audit report</h2>
+<table><tr><th>Performance</th><th>Accessibility</th><th>SEO</th><th>Mobile</th></tr><tr>
+<td>{{ audit.performance_score | default('—') }}</td><td>{{ audit.accessibility_score | default('—') }}</td><td>{{ audit.seo_score | default('—') }}</td><td>{{ audit.mobile_score | default('—') }}</td></tr></table>
+{% if audit.gaps %}<p><strong>Priority gaps:</strong> {{ audit.gaps | join(', ') }}</p>{% endif %}</section>

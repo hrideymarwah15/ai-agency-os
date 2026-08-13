@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Proposal for {{ lead.name }}</title>
+  <style>
+    :root { --ink: #17202a; --muted: #5b6875; --accent: #176b87; --line: #d8e0e6; }
+    @page { size: A4; margin: 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body { color: var(--ink); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; }
+    .proposal-header { border-bottom: 3px solid var(--accent); margin-bottom: 24px; padding-bottom: 16px; }
+    .proposal-header h1 { margin: 0 0 4px; font-size: 28px; }
+    .proposal-header p, .meta { color: var(--muted); margin: 0; }
+    .proposal-section { break-inside: avoid; margin: 0 0 24px; }
+    .proposal-section h2 { border-bottom: 1px solid var(--line); color: var(--accent); font-size: 20px; padding-bottom: 6px; }
+    table { border-collapse: collapse; page-break-inside: avoid; width: 100%; }
+    th, td { border-bottom: 1px solid var(--line); padding: 7px; text-align: left; vertical-align: top; }
+    th { background: #eef5f7; }
+    .price { color: var(--accent); font-size: 24px; font-weight: 700; }
+    @media print { .proposal-section { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <header class="proposal-header">
+    <p class="meta">{{ agency_brand.name }}</p>
+    <h1>Proposal for {{ lead.name }}</h1>
+    <p>{{ pricing.package_name }} · {{ service_type }}</p>
+  </header>
+  {% for section_name in section_order %}
+    {{ sections[section_name] | safe }}
+  {% endfor %}
+</body>
+</html>
