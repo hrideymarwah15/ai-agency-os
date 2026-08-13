@@ -114,11 +114,11 @@ global_settings:
 
 # Objection responses for automated handling
 objection_responses:
-  price: "I understand budget is a concern. Let me share how our clients typically see ROI within 3 months, often covering the investment many times over."
-  timing: "Timing is always tricky. Many clients find that starting now actually saves them time/money in the long run by avoiding [specific pain point]."
-  authority: "Absolutely, you should consult with [stakeholder]. I can prepare a brief summary to help make that conversation easier."
-  need: "I hear you don't see the need right now. Most of our clients felt the same way until they discovered [specific benefit] they weren't aware of."
-  trust: "Trust is earned, not given. I'd be happy to share case studies, references, or start with a small pilot to build confidence."
+  price: "I understand budget is a concern. The {{ package_name | default('recommended') }} package at {{ price | default('the quoted price') }} is designed around measurable ROI. Would a phased approach work better?"
+  timing: "Totally get it — timing matters. We can start with a short discovery phase before committing to the full project."
+  authority: "Would it help if I sent a one-page executive summary for the decision maker? I can also join a brief call."
+  need: "Fair point. If {{ pain_point | default('this priority') }} changes, may I check in next quarter?"
+  trust: "Trust is earned. I am happy to share a relevant case study or reference before you decide."
   competitor: "It's smart to evaluate options. What's most important to you in making this decision? I can help compare apples-to-apples."
   feature_missing: "That feature isn't in our current package, but we often add requested features based on client feedback. Let me check our roadmap."
   contract_length: "I understand the hesitation around long-term commitments. We offer flexible terms and can start with a shorter initial period."
@@ -128,30 +128,43 @@ objection_responses:
 # Follow-up triggers for automated sequences
 follow_up_triggers:
   time_based:
-    - trigger: "3_days_no_reply"
+    - days: 3
+      template: "followup_3d"
+      trigger: "3_days_no_reply"
       delay_days: 3
       action: "send_follow_up"
-    - trigger: "7_days_no_reply"
+    - days: 7
+      template: "followup_7d"
+      trigger: "7_days_no_reply"
       delay_days: 7
       action: "send_follow_up"
-    - trigger: "14_days_no_reply"
+    - days: 14
+      template: "followup_14d"
+      trigger: "14_days_no_reply"
       delay_days: 14
       action: "send_breakup"
   trigger_based:
-    - trigger: "email_opened"
+    - event: "email_open"
+      template: "followup_open"
+      trigger: "email_opened"
       delay_days: 1
       action: "send_follow_up"
-    - trigger: "link_clicked"
+    - event: "link_click"
+      template: "followup_click"
+      trigger: "link_clicked"
       delay_days: 0
       action: "send_immediate_follow_up"
-    - trigger: "website_visited"
+    - event: "website_visit"
+      template: "followup_visit"
+      trigger: "website_visited"
       delay_days: 0
       action: "send_personalized_follow_up"
 
 # Breakup sequence for non-responders
 breakup_sequence:
   enabled: true
-  template: "breakup_sequence"
+  template: "breakup_final"
+  delay_days: 21
   steps:
     - step: 1
       delay_days: 0
@@ -178,7 +191,8 @@ breakup_sequence:
 # Re-engagement campaigns for old leads
 re_engagement_campaign:
   enabled: true
-  template: "re_engagement_sequence"
+  template: "reengagement_q1"
+  interval_days: 90
   trigger_delay_days: 90  # Re-engage after 90 days of no activity
   steps:
     - step: 1
@@ -204,4 +218,5 @@ re_engagement_campaign:
         question: "reply"
 
 # Meeting link template for personalization
-meeting_link_template: "https://calendly.com/{{owner_username}}/{{event_type}}?date={{meeting_date}}&time={{meeting_time}}&text={{custom_text}}"
+reply_confidence_threshold: 0.8
+meeting_link_template: "Book a 15-min discovery call: {{ booking_url }}"

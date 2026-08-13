@@ -1,219 +1,206 @@
-"""Meeting scheduler service for Cal.com integration."""
+"""Strict Cal.com v2 client and signed webhook parser."""
 
-import uuid
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+import hashlib
+import hmac
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from enum import Enum
+from typing import Any
+from urllib.parse import quote
+
 import httpx
-from urllib.parse import urljoin
 
 from backend.config import settings
-from backend.services.audit import AuditService
 
 
+@dataclass(frozen=True)
 class BookingResult:
-    """Result of a meeting booking operation."""
-    def __init__(self, success: bool, booking_id: Optional[str] = None,
-                 booking_url: Optional[str] = None, error: Optional[str] = None):
-        self.success = success
-        self.booking_id = booking_id
-        self.booking_url = booking_url
-        self.error = error
+    """Normalized successful Cal.com booking."""
+
+    booking_id: str
+    meeting_url: str | None
+    start_time: datetime
+    end_time: datetime | None
+    ics_content: str | None = None
+
+
+class BookingEventType(str, Enum):
+    """Cal.com webhook booking transitions."""
+
+    CREATED = "BOOKING_CREATED"
+    CANCELLED = "BOOKING_CANCELLED"
+    RESCHEDULED = "BOOKING_RESCHEDULED"
+
+
+@dataclass(frozen=True)
+class BookingEvent:
+    """Verified and normalized Cal.com webhook event."""
+
+    type: BookingEventType
+    booking_id: str
+    lead_email: str
+    start_time: datetime
+    end_time: datetime | None
+    meeting_url: str | None = None
 
 
 class MeetingScheduler:
-    """Cal.com integration for meeting scheduling."""
+    """Cal.com API v2 integration; missing credentials fail closed."""
 
-    def __init__(self):
-        self.api_key = getattr(settings, 'cal_com_api_key', None)
-        self.username = getattr(settings, 'cal_com_username', None)
-        self.event_type_id = getattr(settings, 'cal_com_event_type_id', None)
-        self.base_url = "https://api.cal.com/v1"
-        self._client = None
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        username: str | None = None,
+        event_type_id: str | None = None,
+        webhook_secret: str | None = None,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self.api_key = settings.cal_com_api_key if api_key is None else api_key
+        self.username = settings.cal_com_username if username is None else username
+        self.event_type_id = settings.cal_com_event_type_id if event_type_id is None else event_type_id
+        self.webhook_secret = (
+            settings.cal_com_webhook_secret if webhook_secret is None else webhook_secret
+        )
+        self.client = client or httpx.AsyncClient(timeout=30.0)
+        self.base_url = "https://api.cal.com/v2"
 
-    def _get_client(self) -> httpx.AsyncClient:
-        """Get or create HTTP client."""
-        if self._client is None:
-            self._client = httpx.AsyncClient(
-                timeout=30.0,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json"
-                }
-            )
-        return self._client
+    @property
+    def configured(self) -> bool:
+        """Return whether required API scheduling credentials exist."""
+        return bool(self.api_key and self.username and self.event_type_id)
 
-    async def get_available_times(self, start_date: datetime,
-                                 end_date: datetime,
-                                 duration_minutes: int = 30) -> List[Dict[str, Any]]:
-        """
-        Get available time slots for meeting booking.
-
-        Returns list of available time slots with start/end times.
-        """
-        if not all([self.api_key, self.username, self.event_type_id]):
-            # Return mock data if not configured
-            return self._get_mock_available_times(start_date, end_date, duration_minutes)
-
-        try:
-            client = self._get_client()
-            params = {
-                "eventTypeId": str(self.event_type_id),
-                "startDate": start_date.strftime("%Y-%m-%d"),
-                "endDate": end_date.strftime("%Y-%m-%d"),
-                "duration": str(duration_minutes)
-            }
-
-            response = await client.get(
-                urljoin(self.base_url, f"slots/{self.username}"),
-                params=params
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("slots", {}).get(self.username, [])
-            else:
-                # Fallback to mock data on API error
-                return self._get_mock_available_times(start_date, end_date, duration_minutes)
-
-        except Exception:
-            # Fallback to mock data on any error
-            return self._get_mock_available_times(start_date, end_date, duration_minutes)
-
-    def _get_mock_available_times(self, start_date: datetime,
-                                 end_date: datetime,
-                                 duration_minutes: int = 30) -> List[Dict[str, Any]]:
-        """Generate mock available times for development/testing."""
-        slots = []
-        current = start_date.replace(hour=9, minute=0, second=0, microsecond=0)
-        end = end_date.replace(hour=17, minute=0, second=0, microsecond=0)
-
-        while current < end:
-            slot_end = current + timedelta(minutes=duration_minutes)
-            if slot_end <= end:
-                slots.append({
-                    "start": current.isoformat(),
-                    "end": slot_end.isoformat()
-                })
-            current = slot_end
-
-        return slots[:10]  # Limit to 10 slots for demo
-
-    async def book_meeting(self, start_time: datetime,
-                          attendee_name: str,
-                          attendee_email: str,
-                          notes: Optional[str] = None) -> BookingResult:
-        """
-        Book a meeting with an attendee.
-
-        Returns BookingResult with booking details or error.
-        """
-        if not all([self.api_key, self.username, self.event_type_id]):
-            return BookingResult(
-                success=True,  # Mock success for development
-                booking_id=str(uuid.uuid4()),
-                booking_url=f"https://calendly.com/{self.username}/mock-{uuid.uuid4().hex[:8]}"
-            )
-
-        try:
-            client = self._get_client()
-            booking_data = {
-                "eventTypeId": str(self.event_type_id),
-                "start": start_time.isoformat(),
-                "attendees": [
-                    {
-                        "name": attendee_name,
-                        "email": attendee_email
-                    }
-                ],
-                "notes": notes or "",
-                "timeZone": "UTC",
-                "language": "en",
-                "metadata": {
-                    "source": "ai_agency_os_outreach",
-                    "campaign_id": notes or "unknown"  # Could extract from notes
-                }
-            }
-
-            response = await client.post(
-                urljoin(self.base_url, "bookings"),
-                json=booking_data
-            )
-
-            if response.status_code in [200, 201]:
-                data = response.json()
-                booking = data.get("booking", {})
-
-                return BookingResult(
-                    success=True,
-                    booking_id=str(booking.get("id", "")),
-                    booking_url=booking.get("joinUrl", "")
-                )
-            else:
-                error_data = response.json() if response.content else {}
-                return BookingResult(
-                    success=False,
-                    error=error_data.get("message", f"HTTP {response.status_code}")
-                )
-
-        except Exception as e:
-            return BookingResult(
-                success=False,
-                error=str(e)
-            )
-
-    async def handle_webhook(self, webhook_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Handle incoming webhook from Cal.com.
-
-        Processes booking created, cancelled, rescheduled events.
-        """
-        event_type = webhook_data.get("event")
-        payload = webhook_data.get("payload", {})
-
-        result = {
-            "processed": False,
-            "action": None,
-            "booking_id": None,
-            "meeting_time": None
+    def _headers(self) -> dict[str, str]:
+        if not self.api_key:
+            raise RuntimeError("CAL_COM_API_KEY is not configured")
+        return {
+            "Authorization": f"Bearer {self.api_key}",
+            "cal-api-version": "2024-08-13",
+            "Content-Type": "application/json",
         }
 
-        try:
-            if event_type == "BOOKING_CREATED":
-                booking = payload.get("booking", {})
-                result.update({
-                    "processed": True,
-                    "action": "booking_created",
-                    "booking_id": str(booking.get("id", "")),
-                    "meeting_time": booking.get("startTime"),
-                    "attendee_email": booking.get("attendees", [{}])[0].get("email") if booking.get("attendees") else None
-                })
+    async def get_availability(
+        self, event_type_id: str | None = None, days_ahead: int = 14
+    ) -> list[dict[str, str]]:
+        """Fetch UTC range slots for an event type."""
+        event_id = event_type_id or self.event_type_id
+        if not event_id:
+            raise RuntimeError("CAL_COM_EVENT_TYPE_ID is not configured")
+        now = datetime.now(UTC)
+        response = await self.client.get(
+            f"{self.base_url}/slots/available",
+            headers=self._headers(),
+            params={
+                "eventTypeId": event_id,
+                "start": now.isoformat(),
+                "end": (now + timedelta(days=days_ahead)).isoformat(),
+                "timeZone": "UTC",
+                "format": "range",
+            },
+        )
+        response.raise_for_status()
+        slots = response.json().get("data", {}).get("slots", {})
+        values = slots.values() if isinstance(slots, dict) else slots
+        return [
+            {"start_time": item["startTime"], "end_time": item["endTime"], "timezone": "UTC"}
+            for item in values
+        ]
 
-                # Audit the booking
-                # AuditService.record would be called here in actual implementation
+    def create_booking_link(
+        self,
+        lead_email: str,
+        lead_name: str,
+        event_type_id: str | None = None,
+        custom_fields: dict[str, str] | None = None,
+    ) -> str:
+        """Create a hosted Cal.com booking URL with encoded attendee fields."""
+        event_id = event_type_id or self.event_type_id
+        if not self.username or not event_id:
+            raise RuntimeError("Cal.com username and event type are required")
+        query = f"email={quote(lead_email)}&name={quote(lead_name)}"
+        for key, value in (custom_fields or {}).items():
+            query += f"&{quote(key)}={quote(value)}"
+        return f"https://cal.com/{quote(self.username)}/{quote(str(event_id))}?{query}"
 
-            elif event_type == "BOOKING_CANCELLED":
-                booking = payload.get("booking", {})
-                result.update({
-                    "processed": True,
-                    "action": "booking_cancelled",
-                    "booking_id": str(booking.get("id", "")),
-                    "meeting_time": booking.get("startTime")
-                })
+    async def create_booking_direct(
+        self,
+        start_time: datetime,
+        lead_email: str,
+        lead_name: str,
+        event_type_id: str | None = None,
+        custom_fields: dict[str, str] | None = None,
+    ) -> BookingResult:
+        """Create a confirmed booking through Cal.com API v2."""
+        event_id = event_type_id or self.event_type_id
+        if not event_id:
+            raise RuntimeError("CAL_COM_EVENT_TYPE_ID is not configured")
+        response = await self.client.post(
+            f"{self.base_url}/bookings",
+            headers=self._headers(),
+            json={
+                "eventTypeId": int(event_id) if str(event_id).isdigit() else event_id,
+                "start": start_time.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+                "attendee": {"name": lead_name, "email": lead_email, "timeZone": "UTC"},
+                "metadata": custom_fields or {},
+            },
+        )
+        response.raise_for_status()
+        data = response.json().get("data", response.json())
+        return BookingResult(
+            booking_id=str(data.get("uid") or data.get("bookingId") or data.get("id")),
+            meeting_url=data.get("meetingUrl") or data.get("location"),
+            start_time=_parse_time(data.get("start") or data.get("startTime")),
+            end_time=_parse_optional_time(data.get("end") or data.get("endTime")),
+            ics_content=data.get("icsContent"),
+        )
 
-            elif event_type == "BOOKING_RESCHEDULED":
-                booking = payload.get("booking", {})
-                result.update({
-                    "processed": True,
-                    "action": "booking_rescheduled",
-                    "booking_id": str(booking.get("id", "")),
-                    "meeting_time": booking.get("startTime")
-                })
+    async def cancel_booking(self, booking_id: str) -> bool:
+        """Cancel a Cal.com booking by UID."""
+        response = await self.client.post(
+            f"{self.base_url}/bookings/{quote(booking_id)}/cancel",
+            headers=self._headers(),
+            json={"cancellationReason": "Cancelled by agency owner"},
+        )
+        response.raise_for_status()
+        return True
 
-        except Exception as e:
-            result["error"] = str(e)
+    def verify_webhook(self, raw_body: bytes, signature: str) -> bool:
+        """Verify Cal.com's SHA-256 HMAC over the exact request body."""
+        if not self.webhook_secret or not signature:
+            return False
+        expected = hmac.new(self.webhook_secret.encode(), raw_body, hashlib.sha256).hexdigest()
+        supplied = signature.removeprefix("sha256=")
+        return hmac.compare_digest(expected, supplied)
 
-        return result
+    def handle_webhook(self, payload: dict[str, Any]) -> BookingEvent:
+        """Normalize a previously verified Cal.com webhook payload."""
+        event_type = BookingEventType(payload.get("triggerEvent") or payload.get("event"))
+        data = payload.get("payload", payload.get("data", {}))
+        booking = data.get("booking", data)
+        attendees = booking.get("attendees") or data.get("attendees") or []
+        email = attendees[0].get("email", "") if attendees else data.get("email", "")
+        return BookingEvent(
+            type=event_type,
+            booking_id=str(booking.get("uid") or booking.get("id")),
+            lead_email=email,
+            start_time=_parse_time(booking.get("startTime") or booking.get("start")),
+            end_time=_parse_optional_time(booking.get("endTime") or booking.get("end")),
+            meeting_url=booking.get("meetingUrl") or booking.get("location"),
+        )
+
+    async def close(self) -> None:
+        """Close the owned/injected HTTP client."""
+        await self.client.aclose()
 
 
-# Global instance
+def _parse_time(value: str | None) -> datetime:
+    if not value:
+        raise ValueError("Cal.com payload is missing a required timestamp")
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _parse_optional_time(value: str | None) -> datetime | None:
+    return _parse_time(value) if value else None
+
+
 meeting_scheduler = MeetingScheduler()

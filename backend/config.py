@@ -67,6 +67,15 @@ class Settings(BaseSettings):
     linkedin_client_secret: str = Field(default="", alias="LINKEDIN_CLIENT_SECRET")
     linkedin_redirect_uri: str = Field(default="", alias="LINKEDIN_REDIRECT_URI")
 
+    # Outreach automation
+    outreach_reply_confidence_threshold: float = Field(
+        default=0.8, alias="OUTREACH_REPLY_CONFIDENCE_THRESHOLD"
+    )
+    cal_com_api_key: str = Field(default="", alias="CAL_COM_API_KEY")
+    cal_com_username: str = Field(default="", alias="CAL_COM_USERNAME")
+    cal_com_event_type_id: str = Field(default="", alias="CAL_COM_EVENT_TYPE_ID")
+    cal_com_webhook_secret: str = Field(default="", alias="CAL_COM_WEBHOOK_SECRET")
+
     # Payments
     razorpay_key_id: str = Field(default="", alias="RAZORPAY_KEY_ID")
     razorpay_key_secret: str = Field(default="", alias="RAZORPAY_KEY_SECRET")
@@ -152,6 +161,14 @@ class Settings(BaseSettings):
 
     # Mock Mode (D-20 — dev-only mock agent data, default off)
     mock_mode: bool = Field(default=False, alias="MOCK_MODE")
+
+    # Targeting Configuration (Phase 2 — Lead Intelligence Engine)
+    target_industries: list[str] = Field(default=["restaurant"], alias="TARGET_INDUSTRIES")
+    target_locations: list[str] = Field(default=["Delhi NCR"], alias="TARGET_LOCATIONS")
+    target_company_size_min: int | None = Field(default=None, alias="TARGET_COMPANY_SIZE_MIN")
+    target_company_size_max: int | None = Field(default=None, alias="TARGET_COMPANY_SIZE_MAX")
+    daily_discovery_target: int = Field(default=50, alias="DAILY_DISCOVERY_TARGET")
+    minimum_lead_score: int = Field(default=60, alias="MINIMUM_LEAD_SCORE")
 
     # Discovery Sources (D-21 — unconfigured sources are disabled; Reddit is
     # live-excluded per LEAD-04 posture; Yelp/Google are key-gated)

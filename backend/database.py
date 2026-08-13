@@ -404,6 +404,27 @@ class OutreachMessage(Base):
     )  # SENT, DELIVERED, OPENED, CLICKED, REPLIED, BOUNCED, FAILED
 
 
+class OutreachMeeting(Base):
+    """Persisted Cal.com booking associated with an outreach campaign."""
+
+    __tablename__ = "outreach_meetings"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    campaign_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("outreach_campaigns.id", ondelete="CASCADE"), index=True
+    )
+    booking_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    lead_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    meeting_url: Mapped[str | None] = mapped_column(String(1000))
+    status: Mapped[str] = mapped_column(String(20), default="BOOKED")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

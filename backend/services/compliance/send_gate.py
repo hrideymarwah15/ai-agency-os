@@ -3,11 +3,12 @@
 from typing import Any
 from uuid import UUID
 
-from itsdangerous import TimestampSigner, BadSignature, SignatureExpired
+from itsdangerous import TimestampSigner
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
 from backend.services.audit import AuditService
+from backend.services.budget import BudgetExceededError, reserve_outreach
 from backend.services.compliance.consent import has_consent
 from backend.services.compliance.rate_limit import DomainTokenBucket
 from backend.services.compliance.suppression import is_suppressed
@@ -52,23 +53,10 @@ async def send_gate(
         await _block_and_log(session, lead_id, channel, "suppressed", email)
         return SendGateResult(False, "suppressed")
 
-    # Check 3: Daily volume cap via OutreachSpend table
-    from datetime import date
-    from sqlalchemy import select, func
-    from backend.database import OutreachSpend
-
-    today = date.today()
-    result = await session.execute(
-        select(OutreachSpend.sent_count)
-        .where(
-            OutreachSpend.spend_date == today,
-            OutreachSpend.channel == channel.value
-        )
-    )
-    sent_today = result.scalar_one_or_none() or 0
-
-    max_daily = settings.global_settings.get("max_daily_sends_per_channel", 100)
-    if sent_today >= max_daily:
+    # Check 3: atomically reserve one daily send before provider contact.
+    try:
+        await reserve_outreach(session, channel=channel.value)
+    except BudgetExceededError:
         await _block_and_log(session, lead_id, channel, "daily_cap_exceeded", email)
         return SendGateResult(False, "daily_cap_exceeded")
 
