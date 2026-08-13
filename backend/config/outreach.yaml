@@ -2,23 +2,89 @@ sequences:
   cold_email_5touch:
     channel: EMAIL
     steps:
-      - step: 1, delay_days: 0, template: "cold_email_1_initial", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "continue"}
-      - step: 2, delay_days: 3, template: "cold_email_2_followup", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "continue"}
-      - step: 3, delay_days: 7, template: "cold_email_3_value", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "continue"}
-      - step: 4, delay_days: 10, template: "cold_email_4_soft_breakup", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "continue"}
-      - step: 5, delay_days: 14, template: "cold_email_5_final", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "stop"}
+      - step: 1
+        delay_days: 0
+        template: "cold_email_1_initial"
+        branch_on_reply:
+          interested: "meeting"
+          not_interested: "stop"
+          question: "reply"
+          no_reply: "continue"
+      - step: 2
+        delay_days: 3
+        template: "cold_email_2_followup"
+        branch_on_reply:
+          interested: "meeting"
+          not_interested: "stop"
+          question: "reply"
+          no_reply: "continue"
+      - step: 3
+        delay_days: 7
+        template: "cold_email_3_value"
+        branch_on_reply:
+          interested: "meeting"
+          not_interested: "stop"
+          question: "reply"
+          no_reply: "continue"
+      - step: 4
+        delay_days: 10
+        template: "cold_email_4_soft_breakup"
+        branch_on_reply:
+          interested: "meeting"
+          not_interested: "stop"
+          question: "reply"
+          no_reply: "continue"
+      - step: 5
+        delay_days: 14
+        template: "cold_email_5_final"
+        branch_on_reply:
+          interested: "meeting"
+          not_interested: "stop"
+          question: "reply"
+          no_reply: "stop"
   warm_email_3touch:
     channel: EMAIL
     steps:
-      - step: 1, delay_days: 0, template: "warm_email_1_checkin", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "continue"}
-      - step: 2, delay_days: 4, template: "warm_email_2_value", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "continue"}
-      - step: 3, delay_days: 8, template: "warm_email_3_offer", branch_on_reply: {interested: "meeting", not_interested: "stop", question: "reply", no_reply: "stop"}
+      - step: 1
+        delay_days: 0
+        template: "warm_email_1_checkin"
+        branch_on_reply:
+          interested: "meeting"
+          not_interested: "stop"
+          question: "reply"
+          no_reply: "continue"
+      - step: 2
+        delay_days: 4
+        template: "warm_email_2_value"
+        branch_on_reply:
+          interested: "meeting"
+          not_interested: "stop"
+          question: "reply"
+          no_reply: "continue"
+      - step: 3
+        delay_days: 8
+        template: "warm_email_3_offer"
+        branch_on_reply:
+          interested: "meeting"
+          not_interested: "stop"
+          question: "reply"
+          no_reply: "stop"
   linkedin_sequence:
     channel: LINKEDIN
     steps:
-      - step: 1, delay_days: 0, template: "linkedin_1_connection", action: "connection_request"
-      - step: 2, delay_days: 2, template: "linkedin_2_message", action: "message", condition: "connection_accepted"
-      - step: 3, delay_days: 5, template: "linkedin_3_followup", action: "message"
+      - step: 1
+        delay_days: 0
+        template: "linkedin_1_connection"
+        action: "connection_request"
+      - step: 2
+        delay_days: 2
+        template: "linkedin_2_message"
+        action: "message"
+        condition: "connection_accepted"
+      - step: 3
+        delay_days: 5
+        template: "linkedin_3_followup"
+        action: "message"
 
 # Template mapping - maps template names to actual Jinja2 templates
 # These will be created in Plan 03
@@ -45,3 +111,97 @@ global_settings:
   max_daily_sends_per_channel: 100
   default_from_email: "outreach@yourdomain.com"
   unsubscribe_link_template: "https://yourapi.com/api/v1/outreach/unsubscribe?token={{unsubscribe_token}}"
+
+# Objection responses for automated handling
+objection_responses:
+  price: "I understand budget is a concern. Let me share how our clients typically see ROI within 3 months, often covering the investment many times over."
+  timing: "Timing is always tricky. Many clients find that starting now actually saves them time/money in the long run by avoiding [specific pain point]."
+  authority: "Absolutely, you should consult with [stakeholder]. I can prepare a brief summary to help make that conversation easier."
+  need: "I hear you don't see the need right now. Most of our clients felt the same way until they discovered [specific benefit] they weren't aware of."
+  trust: "Trust is earned, not given. I'd be happy to share case studies, references, or start with a small pilot to build confidence."
+  competitor: "It's smart to evaluate options. What's most important to you in making this decision? I can help compare apples-to-apples."
+  feature_missing: "That feature isn't in our current package, but we often add requested features based on client feedback. Let me check our roadmap."
+  contract_length: "I understand the hesitation around long-term commitments. We offer flexible terms and can start with a shorter initial period."
+  implementation: "Implementation concerns are valid. We provide dedicated support and typically have clients up and running within [timeframe]."
+  resource_intensive: "Actually, our solution is designed to be lightweight and save resources. Most clients spend less than [time] per week managing it."
+
+# Follow-up triggers for automated sequences
+follow_up_triggers:
+  time_based:
+    - trigger: "3_days_no_reply"
+      delay_days: 3
+      action: "send_follow_up"
+    - trigger: "7_days_no_reply"
+      delay_days: 7
+      action: "send_follow_up"
+    - trigger: "14_days_no_reply"
+      delay_days: 14
+      action: "send_breakup"
+  trigger_based:
+    - trigger: "email_opened"
+      delay_days: 1
+      action: "send_follow_up"
+    - trigger: "link_clicked"
+      delay_days: 0
+      action: "send_immediate_follow_up"
+    - trigger: "website_visited"
+      delay_days: 0
+      action: "send_personalized_follow_up"
+
+# Breakup sequence for non-responders
+breakup_sequence:
+  enabled: true
+  template: "breakup_sequence"
+  steps:
+    - step: 1
+      delay_days: 0
+      template: "breakup_1_final_attempt"
+      branch_on_reply:
+        interested: "meeting"
+        not_interested: "stop"
+        question: "reply"
+    - step: 2
+      delay_days: 3
+      template: "breakup_2_last_chance"
+      branch_on_reply:
+        interested: "meeting"
+        not_interested: "stop"
+        question: "reply"
+    - step: 3
+      delay_days: 5
+      template: "breakup_3_goodbye"
+      branch_on_reply:
+        interested: "meeting"
+        not_interested: "stop"
+        question: "reply"
+
+# Re-engagement campaigns for old leads
+re_engagement_campaign:
+  enabled: true
+  template: "re_engagement_sequence"
+  trigger_delay_days: 90  # Re-engage after 90 days of no activity
+  steps:
+    - step: 1
+      delay_days: 0
+      template: "re_engagement_1_we_miss_you"
+      branch_on_reply:
+        interested: "meeting"
+        not_interested: "stop"
+        question: "reply"
+    - step: 2
+      delay_days: 7
+      template: "re_engagement_2_new_offer"
+      branch_on_reply:
+        interested: "meeting"
+        not_interested: "stop"
+        question: "reply"
+    - step: 3
+      delay_days: 14
+      template: "re_engagement_3_final_invite"
+      branch_on_reply:
+        interested: "meeting"
+        not_interested: "stop"
+        question: "reply"
+
+# Meeting link template for personalization
+meeting_link_template: "https://calendly.com/{{owner_username}}/{{event_type}}?date={{meeting_date}}&time={{meeting_time}}&text={{custom_text}}"

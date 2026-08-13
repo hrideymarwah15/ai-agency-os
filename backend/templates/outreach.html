@@ -1,0 +1,515 @@
+{% extends "base.html" %}
+{% block title %}Outreach — AI Agency OS{% endblock %}
+{% block content %}
+{% if not owner %}
+<div class="alert alert-warning">
+  <p>You must be logged in as the agency owner to access outreach controls.</p>
+  <p><a href="/login">Login</a></p>
+</div>
+{% else %}
+<header class="page-header">
+  <h1>Outreach</h1>
+  <p>Manage outreach campaigns, view engagement metrics, and monitor campaign performance.</p>
+</header>
+
+<!-- Campaign Creation Form -->
+<section class="section">
+  <h2 class="section-title">New Campaign</h2>
+  <form class="campaign-form" id="new-campaign-form">
+    <div class="form-row">
+      <label for="lead-select">Lead/Business:</label>
+      <select id="lead-select" class="input" required>
+        <option value="">Select a lead...</option>
+        <!-- Options will be populated via JavaScript -->
+      </select>
+    </div>
+    <div class="form-row">
+      <label for="sequence-select">Outreach Sequence:</label>
+      <select id="sequence-select" class="input" required>
+        <option value="">Select a sequence...</option>
+        <!-- Options will be populated via JavaScript -->
+      </select>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Start Campaign</button>
+    </div>
+  </form>
+</section>
+
+<!-- Metrics Cards -->
+<section class="section">
+  <h2 class="section-title">Campaign Metrics</h2>
+  <div class="metrics-grid" id="metrics-grid">
+    <!-- Metrics will be populated via JavaScript -->
+    <div class="metric-card">
+      <h3>Active Campaigns</h3>
+      <div class="metric-value" id="active-count">—</div>
+    </div>
+    <div class="metric-card">
+      <h3>Messages Sent</h3>
+      <div class="metric-value" id="sent-count">—</div>
+    </div>
+    <div class="metric-card">
+      <h3>Reply Rate</h3>
+      <div class="metric-value" id="reply-rate">—%</div>
+    </div>
+    <div class="metric-card">
+      <h3>Meetings Booked</h3>
+      <div class="metric-value" id="meetings-count">—</div>
+    </div>
+  </div>
+</section>
+
+<!-- Campaign Kanban Board -->
+<section class="section">
+  <h2 class="section-title">Campaign Pipeline</h2>
+  <div class="kanban-board" id="kanban-board">
+    <!-- Kanban columns will be populated via JavaScript -->
+    <div class="kanban-column" id="column-new">
+      <h3>New <span class="column-count" id="new-count">0</span></h3>
+      <div class="kanban-cards" id="cards-new"></div>
+    </div>
+    <div class="kanban-column" id="column-contacted">
+      <h3>Contacted <span class="column-count" id="contacted-count">0</span></h3>
+      <div class="kanban-cards" id="cards-contacted"></div>
+    </div>
+    <div class="kanban-column" id="column-replied">
+      <h3>Replied <span class="column-count" id="replied-count">0</span></h3>
+      <div class="kanban-cards" id="cards-replied"></div>
+    </div>
+    <div class="kanban-column" id="column-qualified">
+      <h3>Qualified <span class="column-count" id="qualified-count">0</span></h3>
+      <div class="kanban-cards" id="cards-qualified"></div>
+    </div>
+    <div class="kanban-column" id="column-meeting">
+      <h3>Meeting <span class="column-count" id="meeting-count">0</span></h3>
+      <div class="kanban-cards" id="cards-meeting"></div>
+    </div>
+  </div>
+</section>
+
+<!-- Campaign List (Fallback) -->
+<section class="section">
+  <h2 class="section-title">All Campaigns</h2>
+  <div class="table-scroll">
+    <table class="table" aria-label="Outreach campaigns" id="campaigns-table">
+      <thead>
+        <tr>
+          <th scope="col">Campaign ID</th>
+          <th scope="col">Lead</th>
+          <th scope="col">Sequence</th>
+          <th scope="col">Channel</th>
+          <th scope="col">Current Step</th>
+          <th scope="col">Status</th>
+          <th scope="col">Next Action</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="campaigns-table-body">
+        <!-- Rows will be populated via JavaScript -->
+      </tbody>
+    </table>
+  </div>
+  <p class="table-note" id="table-note">Loading campaigns...</p>
+</section>
+
+<!-- Sequence Editor (View Only for v1) -->
+<section class="section">
+  <h2 class="section-title">Outreach Sequences</h2>
+  <p>View and manage outreach sequences. Sequences are defined in YAML configuration.</p>
+  <div class="table-scroll">
+    <table class="table" aria-label="Outreach sequences" id="sequences-table">
+      <thead>
+        <tr>
+          <th scope="col">Sequence ID</th>
+          <th scope="col">Channel</th>
+          <th scope="col">Steps</th>
+          <th scope="col">Description</th>
+        </tr>
+      </thead>
+      <tbody id="sequences-table-body">
+        <!-- Rows will be populated via JavaScript -->
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize the outreach dashboard
+  initOutreachDashboard();
+});
+
+async function initOutreachDashboard() {
+  try {
+    // Fetch initial data
+    await Promise.all([
+      loadLeads(),
+      loadSequences(),
+      loadCampaigns(),
+      loadMetrics(),
+      loadKanbanBoard()
+    ]);
+
+    // Set up event listeners
+    setupFormListeners();
+
+    // Start periodic updates
+    setInterval(() => {
+      loadCampaigns();
+      loadMetrics();
+      loadKanbanBoard();
+    }, 30000); // Update every 30 seconds
+  } catch (error) {
+    console.error('Failed to initialize outreach dashboard:', error);
+    showError('Failed to load outreach data. Please refresh the page.');
+  }
+}
+
+async function loadLeads() {
+  try {
+    const response = await fetch('/api/v1/discovery/leads?limit=100', {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to load leads');
+    const data = await response.json();
+    const leadSelect = document.getElementById('lead-select');
+
+    // Clear existing options except placeholder
+    leadSelect.innerHTML = '<option value="">Select a lead...</option>';
+
+    // Add leads
+    data.leads.forEach(lead => {
+      const option = document.createElement('option');
+      option.value = lead.id;
+      option.textContent = `${lead.name || 'Unnamed'} (${lead.company || 'Unknown Company'})`;
+      leadSelect.appendChild(option);
+    });
+  } catch (error) {
+    console.warn('Could not load leads:', error);
+  }
+}
+
+async function loadSequences() {
+  try {
+    const response = await fetch('/api/v1/outreach/sequences', {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to load sequences');
+    const data = await response.json();
+    const sequenceSelect = document.getElementById('sequence-select');
+
+    // Clear existing options except placeholder
+    sequenceSelect.innerHTML = '<option value="">Select a sequence...</option>';
+
+    // Add sequences
+    data.sequences.forEach(seq => {
+      const option = document.createElement('option');
+      option.value = seq.id;
+      option.textContent = `${seq.name} (${seq.channel})`;
+      sequenceSelect.appendChild(option);
+    });
+
+    // Also populate sequences table
+    populateSequencesTable(data.sequences);
+  } catch (error) {
+    console.warn('Could not load sequences:', error);
+  }
+}
+
+async function loadCampaigns() {
+  try {
+    const response = await fetch('/api/v1/outreach/campaigns', {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to load campaigns');
+    const data = await response.json();
+    populateCampaignsTable(data.campaigns);
+  } catch (error) {
+    console.warn('Could not load campaigns:', error);
+  }
+}
+
+async function loadMetrics() {
+  try {
+    const response = await fetch('/api/v1/outreach/metrics', {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to load metrics');
+    const data = await response.json();
+    updateMetricsDisplay(data);
+  } catch (error) {
+    console.warn('Could not load metrics:', error);
+  }
+}
+
+async function loadKanbanBoard() {
+  try {
+    const response = await fetch('/api/v1/outreach/kanban', {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to load kanban data');
+    const data = await response.json();
+    populateKanbanBoard(data.columns);
+  } catch (error) {
+    console.warn('Could not load kanban data:', error);
+  }
+}
+
+function setupFormListeners() {
+  const form = document.getElementById('new-campaign-form');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const leadId = document.getElementById('lead-select').value;
+    const sequenceId = document.getElementById('sequence-select').value;
+
+    if (!leadId || !sequenceId) {
+      showError('Please select both a lead and a sequence');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/v1/outreach/campaigns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          lead_id: leadId,
+          sequence_id: sequenceId
+        }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to create campaign');
+      }
+
+      // Reset form
+      form.reset();
+
+      // Reload data
+      await Promise.all([
+        loadCampaigns(),
+        loadMetrics(),
+        loadKanbanBoard()
+      ]);
+
+      showSuccess('Campaign created successfully!');
+    } catch (error) {
+      showError(`Failed to create campaign: ${error.message}`);
+    }
+  });
+}
+
+function populateCampaignsTable(campaigns) {
+  const tbody = document.getElementById('campaigns-table-body');
+  const note = document.getElementById('table-note');
+
+  if (campaigns.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8">No campaigns found</td></tr>';
+    note.textContent = 'No campaigns found';
+    return;
+  }
+
+  note.textContent = `Showing ${campaigns.length} campaigns`;
+  tbody.innerHTML = campaigns.map(campaign => {
+    const statusClass = getStatusClass(campaign.status);
+    return `
+      <tr>
+        <td>${campaign.id.substring(0, 8)}...</td>
+        <td>${campaign.lead_name || 'Unknown'}</td>
+        <td>${campaign.sequence_id}</td>
+        <td>${campaign.channel}</td>
+        <td>${campaign.current_step}</td>
+        <td><span class="status-badge ${statusClass}">${campaign.status}</span></td>
+        <td>${campaign.next_action_at ? new Date(campaign.next_action_at).toLocaleString() : '—'}</td>
+        <td>
+          <div class="action-buttons">
+            ${campaign.status === 'ACTIVE' ?
+              `<button onclick="pauseCampaign('${campaign.id}')" class="btn btn-sm btn-outline">Pause</button>` :
+              campaign.status === 'PAUSED' ?
+                `<button onclick="resumeCampaign('${campaign.id}')" class="btn btn-sm btn-outline">Resume</button>` :
+                ''}
+            ${campaign.status === 'ACTIVE' || campaign.status === 'PAUSED' ?
+              `<button onclick="skipStep('${campaign.id}')" class="btn btn-sm btn-outline">Skip Step</button>` :
+              ''}
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  });
+}
+
+function populateSequencesTable(sequences) {
+  const tbody = document.getElementById('sequences-table-body');
+  if (sequences.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4">No sequences found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = sequences.map(seq => {
+    const stepCount = seq.steps ? seq.steps.length : 0;
+    return `
+      <tr>
+        <td>${seq.id}</td>
+        <td>${seq.channel}</td>
+        <td>${stepCount} steps</td>
+        <td>${seq.description || 'No description'}</td>
+      </tr>
+    `).join('');
+  });
+}
+
+function populateKanbanBoard(columns) {
+  // Clear all columns
+  ['new', 'contacted', 'replied', 'qualified', 'meeting'].forEach(col => {
+    document.getElementById(`cards-${col}`).innerHTML = '';
+    document.getElementById(`${col}-count`).textContent = '0';
+  });
+
+  // Populate columns
+  columns.forEach(column => {
+    const cardsContainer = document.getElementById(`cards-${column.status}`);
+    const countElement = document.getElementById(`${column.status}-count`);
+
+    countElement.textContent = campaign.cards.length;
+
+    column.cards.forEach(card => {
+      const cardElement = document.createElement('div');
+      cardElement.className = 'kanban-card';
+      cardElement.innerHTML = `
+        <div class="card-header">
+          <h4>${card.lead_name}</h4>
+          <p class="card-meta">${card.company}</p>
+        </div>
+        <div class="card-body">
+          <p><strong>Sequence:</strong> ${card.sequence_id}</p>
+          <p><strong>Step:</strong> ${card.current_step}/${card.total_steps}</p>
+          <p><strong>Last Activity:</strong> ${card.last_activity}</p>
+        </div>
+        <div class="card-footer">
+          ${card.actions.map(action => `
+            <button onclick="${action.handler}('${card.id}')" class="btn btn-sm btn-outline">${action.label}</button>
+          `).join('')}
+        </div>
+      `;
+      cardsContainer.appendChild(cardElement);
+    });
+  });
+}
+
+function getStatusClass(status) {
+  switch (status.toLowerCase()) {
+    case 'active': return 'status-active';
+    case 'paused': return 'status-paused';
+    case 'completed': return 'status-completed';
+    case 'bounced': return 'status-error';
+    case 'opted_out': return 'status-warning';
+    case 'failed': return 'status-error';
+    default: return 'status-default';
+  }
+}
+
+async function pauseCampaign(campaignId) {
+  try {
+    const response = await fetch(`/api/v1/outreach/campaigns/${campaignId}/pause`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to pause campaign');
+
+    await loadCampaigns();
+    await loadKanbanBoard();
+    showSuccess('Campaign paused successfully');
+  } catch (error) {
+    showError(`Failed to pause campaign: ${error.message}`);
+  }
+}
+
+async function resumeCampaign(campaignId) {
+  try {
+    const response = await fetch(`/api/v1/outreach/campaigns/${campaignId}/resume`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to resume campaign');
+
+    await loadCampaigns();
+    await loadKanbanBoard();
+    showSuccess('Campaign resumed successfully');
+  } catch (error) {
+    showError(`Failed to resume campaign: ${error.message}`);
+  }
+}
+
+async function skipStep(campaignId) {
+  try {
+    const response = await fetch(`/api/v1/outreach/campaigns/${campaignId}/skip-step`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to skip step');
+
+    await loadCampaigns();
+    await loadKanbanBoard();
+    showSuccess('Step skipped successfully');
+  } catch (error) {
+    showError(`Failed to skip step: ${error.message}`);
+  }
+}
+
+function updateMetricsDisplay(metrics) {
+  document.getElementById('active-count').textContent = metrics.active_campaigns || 0;
+  document.getElementById('sent-count').textContent = (metrics.messages_sent || 0).toLocaleString();
+  document.getElementById('reply-rate').textContent = `${(metrics.reply_rate || 0).toFixed(1)}%`;
+  document.getElementById('meetings-count').textContent = (metrics.meetings_booked || 0).toLocaleString();
+}
+
+function showError(message) {
+  // Remove any existing alerts
+  const existingAlert = document.querySelector('.alert-danger');
+  if (existingAlert) existingAlert.remove();
+
+  const alert = document.createElement('div');
+  alert.className = 'alert alert-danger';
+  alert.innerHTML = `<p>${message}</p>`;
+
+  // Insert after header
+  const header = document.querySelector('.page-header');
+  header.insertAdjacentElement('afterend', alert);
+
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    if (alert.parentNode) {
+      alert.parentNode.removeChild(alert);
+    }
+  }, 5000);
+}
+
+function showSuccess(message) {
+  // Remove any existing alerts
+  const existingAlert = document.querySelector('.alert-success');
+  if (existingAlert) existingAlert.remove();
+
+  const alert = document.createElement('div');
+  alert.className = 'alert alert-success';
+  alert.innerHTML = `<p>${message}</p>`;
+
+  // Insert after header
+  const header = document.querySelector('.page-header');
+  header.insertAdjacentElement('afterend', alert);
+
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    if (alert.parentNode) {
+      alert.parentNode.removeChild(alert);
+    }
+  }, 5000);
+}
+</script>
+{% endblock %}

@@ -347,6 +347,9 @@ class OutreachLog(Base):
     proposal_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("proposals.id", ondelete="SET NULL"), nullable=True
     )
+    campaign_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("outreach_campaigns.id", ondelete="SET NULL"), nullable=True
+    )
     channel: Mapped[str] = mapped_column(String(20), nullable=False)  # EMAIL, WHATSAPP, LINKEDIN
     direction: Mapped[str] = mapped_column(String(10), nullable=False)  # OUTBOUND, INBOUND
     subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -357,6 +360,48 @@ class OutreachLog(Base):
     )  # SENT, DELIVERED, OPENED, REPLIED, BOUNCED
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class OutreachCampaign(Base):
+    __tablename__ = "outreach_campaigns"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    lead_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("businesses.id", ondelete="CASCADE"))
+    sequence_id: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g., "cold_email_5touch"
+    channel: Mapped[str] = mapped_column(String(20), nullable=False)  # EMAIL, LINKEDIN, etc.
+    current_step: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(
+        String(20), default="ACTIVE"
+    )  # ACTIVE, PAUSED, COMPLETED, BOUNCED, OPTED_OUT
+    next_action_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class OutreachMessage(Base):
+    __tablename__ = "outreach_messages"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    campaign_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("outreach_campaigns.id", ondelete="CASCADE"))
+    step_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    channel: Mapped[str] = mapped_column(String(20), nullable=False)
+    template_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    rendered_subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    rendered_content: Mapped[str] = mapped_column(Text, nullable=False)
+    personalization_data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    clicked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    replied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reply_content: Mapped[Text | None] = mapped_column(Text)
+    reply_classification: Mapped[str | None] = mapped_column(String(50))  # interested, not_interested, question, meeting, etc.
+    status: Mapped[str] = mapped_column(
+        String(20), default="SENT"
+    )  # SENT, DELIVERED, OPENED, CLICKED, REPLIED, BOUNCED, FAILED
 
 
 class AuditLog(Base):
@@ -624,7 +669,7 @@ class WebsiteAudit(Base):
 
 class PricingRun(Base):
     """Pricing calculation audit trail."""
-    
+
     __tablename__ = "pricing_runs"
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -635,7 +680,7 @@ class PricingRun(Base):
     service_type: Mapped[str] = mapped_column(String(50), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     status: Mapped[str] = mapped_column(
-        String(20), 
+        String(20),
         default="PENDING",
         nullable=False
     )  # PENDING/COMPLETED/FAILED
@@ -649,7 +694,7 @@ class PricingRun(Base):
 
 class PricingRuleVersion(Base):
     """Versioned snapshot of pricing rules for audit trail."""
-    
+
     __tablename__ = "pricing_rule_versions"
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)

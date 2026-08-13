@@ -36,3 +36,19 @@ class DomainTokenBucket:
             self.tokens[domain] = 0
         else:
             self.tokens[domain] -= 1
+
+    def try_acquire(self, domain: str) -> bool:
+        """Try to consume one token without waiting. Returns True if successful."""
+        now = time.monotonic()
+        # Update token count based on time passed
+        self.tokens[domain] = min(
+            self.capacity,
+            self.tokens.get(domain, self.capacity)
+            + (now - self.last.get(domain, now)) * self.refill,
+        )
+        self.last[domain] = now
+
+        if self.tokens[domain] >= 1:
+            self.tokens[domain] -= 1
+            return True
+        return False
