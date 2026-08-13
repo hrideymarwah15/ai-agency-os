@@ -1,6 +1,7 @@
 """Outreach worker: processes outbox events to execute sequence steps."""
 
 import asyncio
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 from uuid import uuid4
@@ -10,18 +11,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
 from backend.database import (
+    ApprovalRequest,
     async_session_maker as AsyncSessionLocal,
+    Business,
     OutboxEvent,
     OutreachCampaign,
     OutreachMessage,
-    OutreachLog
+    OutreachLog,
+    OutreachMeeting,
 )
 from backend.services.audit import AuditService
 from backend.services.compliance.send_gate import send_gate, SendGateResult
 from backend.services.outreach.sequence import SequenceEngine
 from backend.services.outreach.clients import SendGridClient, LinkedInClient, OutreachChannel
-from backend.services.outreach.reply_classifier import ReplyClassifier, ClassificationResult
-from backend.services.outreach.meeting_scheduler import MeetingScheduler, BookingResult
+from backend.services.compliance import suppression
+from backend.services.outreach.reply_classifier import ReplyClassification, ReplyClassifier
+from backend.services.outreach.meeting_scheduler import BookingEvent, BookingEventType, MeetingScheduler
 
 
 class OutreachWorker:
@@ -137,7 +142,8 @@ class OutreachWorker:
             lead_id = payload.get("lead_id")
             step_number = payload.get("step_number")
             channel_str = payload.get("channel")
-            personalization_data = payload.get("personalization_data", {})
+            personalization_data = dict(payload.get("personalization_data", {}))
+            template_override = payload.get("template_override")
 
             if not all([campaign_id, lead_id, step_number, channel_str]):
                 await AuditService.record(
@@ -155,7 +161,7 @@ class OutreachWorker:
                 campaign_uuid = campaign_id if isinstance(campaign_id, str) else str(campaign_id)
                 lead_uuid = lead_id if isinstance(lead_id, str) else str(lead_id)
                 step_num = int(step_number)
-                channel = OutreachChannel(channel_str)
+                channel = OutreachChannel(str(channel_str).lower())
             except (ValueError, TypeError) as e:
                 await AuditService.record(
                     session,
@@ -175,7 +181,8 @@ class OutreachWorker:
                 step_num,
                 channel,
                 personalization_data,
-                event.id  # outbox event id for reference
+                event.id,  # outbox event id for reference
+                template_override,
             )
             return success
 
@@ -200,7 +207,8 @@ class OutreachWorker:
         step_number: int,
         channel: OutreachChannel,
         personalization_data: Dict[str, Any],
-        outbox_event_id: int
+        outbox_event_id: int,
+        template_override: str | None = None,
     ) -> bool:
         """Process a single outreach send attempt."""
         # Get campaign
@@ -282,7 +290,9 @@ class OutreachWorker:
         # Load sequence and get template for this step
         try:
             sequence_config = self.sequence_engine.load_sequence(campaign.sequence_id)
-            step_template = self.sequence_engine.get_step_template(campaign.sequence_id, step_number)
+            step_template = template_override or self.sequence_engine.get_step_template(
+                campaign.sequence_id, step_number
+            )
             if not step_template:
                 raise ValueError(f"No template found for step {step_number} in sequence {campaign.sequence_id}")
         except Exception as e:
@@ -352,6 +362,9 @@ class OutreachWorker:
             )
             await session.commit()
             return False  # Don't retry compliance blocks
+
+        html_content = f"{html_content}\n{send_result.unsubscribe_footer}"
+        text_content = f"{text_content}\n\nUnsubscribe: included in the HTML version."
 
         # Send via appropriate channel client
         try:
@@ -476,6 +489,177 @@ class OutreachWorker:
             )
             await session.commit()
             return True  # Retry on send failures
+
+    async def handle_reply(
+        self,
+        session: AsyncSession,
+        campaign: OutreachCampaign,
+        reply_content: str,
+        lead_context: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Classify and persist a reply, then apply its deterministic branch."""
+        result = await self.reply_classifier.classify(reply_content, lead_context)
+        message = (
+            await session.execute(
+                select(OutreachMessage)
+                .where(OutreachMessage.campaign_id == campaign.id)
+                .order_by(OutreachMessage.step_number.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        now = datetime.now(timezone.utc)
+        if message is not None:
+            message.replied_at = now
+            message.reply_content = reply_content
+            message.reply_classification = result.classification.value
+            message.status = "REPLIED"
+
+        if result.escalate:
+            campaign.status = "PAUSED"
+            fingerprint = hashlib.sha256(reply_content.encode()).hexdigest()
+            session.add(
+                ApprovalRequest(
+                    action_type="outreach.reply_escalation",
+                    entity_type="outreach_campaign",
+                    entity_id=str(campaign.id),
+                    context={
+                        "classification": result.classification.value,
+                        "confidence": result.confidence,
+                        "reply_sha256": fingerprint,
+                    },
+                    thread_id=f"outreach-reply-{campaign.id}-{fingerprint[:12]}",
+                    expires_at=now + timedelta(seconds=settings.approval_expiry_seconds),
+                )
+            )
+        elif result.classification in {
+            ReplyClassification.NOT_INTERESTED,
+            ReplyClassification.UNSUBSCRIBE,
+        }:
+            campaign.status = (
+                "OPTED_OUT"
+                if result.classification == ReplyClassification.UNSUBSCRIBE
+                else "COMPLETED"
+            )
+            business = await session.get(Business, campaign.lead_id)
+            if business and business.email:
+                await suppression.add(
+                    session, email=business.email, reason=result.classification.value
+                )
+        elif result.classification == ReplyClassification.LATER:
+            campaign.next_action_at = now + timedelta(days=30)
+        elif result.classification == ReplyClassification.REFERRAL:
+            campaign.status = "COMPLETED"
+        elif result.classification == ReplyClassification.INTERESTED:
+            campaign.status = "QUALIFIED"
+
+        await AuditService.record(
+            session,
+            actor="system",
+            action="outreach.reply.handled",
+            entity_type="outreach_campaign",
+            entity_id=str(campaign.id),
+            payload={
+                "classification": result.classification.value,
+                "confidence": result.confidence,
+                "source": result.source,
+                "escalated": result.escalate,
+            },
+            correlation_id=str(campaign.id),
+        )
+        await session.commit()
+        return {
+            "classification": result.classification.value,
+            "confidence": result.confidence,
+            "escalated": result.escalate,
+            "suggested_response": result.suggested_response,
+        }
+
+    async def handle_meeting_event(
+        self,
+        session: AsyncSession,
+        campaign: OutreachCampaign,
+        event: BookingEvent,
+    ) -> OutreachMeeting:
+        """Persist a booking transition and enqueue proposal generation on creation."""
+        meeting = (
+            await session.execute(
+                select(OutreachMeeting).where(OutreachMeeting.booking_id == event.booking_id)
+            )
+        ).scalar_one_or_none()
+        status = {
+            BookingEventType.CREATED: "BOOKED",
+            BookingEventType.CANCELLED: "CANCELLED",
+            BookingEventType.RESCHEDULED: "RESCHEDULED",
+        }[event.type]
+        if meeting is None:
+            meeting = OutreachMeeting(
+                campaign_id=campaign.id,
+                booking_id=event.booking_id,
+                lead_email=event.lead_email,
+                start_time=event.start_time,
+                end_time=event.end_time,
+                meeting_url=event.meeting_url,
+                status=status,
+            )
+            session.add(meeting)
+        else:
+            meeting.start_time = event.start_time
+            meeting.end_time = event.end_time
+            meeting.meeting_url = event.meeting_url
+            meeting.status = status
+        if event.type == BookingEventType.CREATED:
+            campaign.status = "MEETING_BOOKED"
+            session.add(
+                OutboxEvent(
+                    topic="proposal.generate",
+                    payload={"campaign_id": str(campaign.id), "lead_id": str(campaign.lead_id)},
+                )
+            )
+        await AuditService.record(
+            session,
+            actor="system",
+            action=f"outreach.meeting.{status.lower()}",
+            entity_type="outreach_campaign",
+            entity_id=str(campaign.id),
+            payload={"booking_id": event.booking_id},
+            correlation_id=str(campaign.id),
+        )
+        await session.commit()
+        return meeting
+
+    async def enqueue_follow_up(
+        self, session: AsyncSession, campaign: OutreachCampaign, trigger_event: str
+    ) -> bool:
+        """Enqueue a configured event-based or time-based follow-up."""
+        action = self.sequence_engine.compute_follow_up_action(campaign.sequence_id, trigger_event)
+        if action is None or campaign.status != "ACTIVE":
+            return False
+        template, delay = action
+        session.add(
+            OutboxEvent(
+                topic="outreach.send",
+                next_run_at=datetime.now(timezone.utc) + delay,
+                payload={
+                    "campaign_id": str(campaign.id),
+                    "lead_id": str(campaign.lead_id),
+                    "step_number": campaign.current_step,
+                    "channel": campaign.channel.lower(),
+                    "template_override": template,
+                    "personalization_data": {},
+                },
+            )
+        )
+        await AuditService.record(
+            session,
+            actor="system",
+            action="outreach.follow_up.enqueued",
+            entity_type="outreach_campaign",
+            entity_id=str(campaign.id),
+            payload={"trigger": trigger_event, "template": template},
+            correlation_id=str(campaign.id),
+        )
+        await session.commit()
+        return True
 
 
 outreach_worker = OutreachWorker()

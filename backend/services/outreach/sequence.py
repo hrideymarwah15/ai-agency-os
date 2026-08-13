@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, timezone
 import random
 import re
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
@@ -41,7 +42,7 @@ class SequenceStep(BaseModel):
 class SequenceConfig(BaseModel):
     """Complete outreach sequence configuration."""
     channel: str = Field(..., description="Channel: EMAIL, LINKEDIN, etc.")
-    steps: List[SequenceStep] = Field(..., min_items=1, description="Sequence steps in order")
+    steps: List[SequenceStep] = Field(..., min_length=1, description="Sequence steps in order")
     templates: Optional[Dict[str, str]] = Field(
         default=None,
         description="Mapping of template names to Jinja2 template paths"
@@ -67,6 +68,22 @@ class SequenceConfig(BaseModel):
         default=None,
         description="Template for generating personalized meeting links"
     )
+
+
+class FollowUpTriggerType(str, Enum):
+    """Supported follow-up trigger families."""
+
+    TIME_BASED = "time_based"
+    EVENT_BASED = "event_based"
+
+
+class FollowUpTrigger(BaseModel):
+    """Normalized follow-up trigger from outreach YAML."""
+
+    trigger_type: FollowUpTriggerType
+    condition: str
+    template: str
+    delay_days: int = 0
 
 
 class SequenceEngine:
@@ -244,14 +261,58 @@ class SequenceEngine:
 
     def get_follow_up_triggers(
         self, sequence_id: Optional[str] = None
-    ) -> Optional[Dict[str, List[Dict[str, Any]]]]:
-        """Get follow-up trigger configuration."""
-        if sequence_id is not None:
-            return self.load_sequence(sequence_id).follow_up_triggers
-        for sequence_config in self._sequences.values():
-            if sequence_config.follow_up_triggers:
-                return sequence_config.follow_up_triggers
+    ) -> list[FollowUpTrigger]:
+        """Return normalized time- and event-based triggers."""
+        config = self.load_sequence(sequence_id) if sequence_id else next(iter(self._sequences.values()))
+        raw = config.follow_up_triggers or {}
+        triggers = [
+            FollowUpTrigger(
+                trigger_type=FollowUpTriggerType.TIME_BASED,
+                condition=str(item.get("days") or item.get("trigger")),
+                template=item["template"],
+                delay_days=int(item.get("delay_days", item.get("days", 0))),
+            )
+            for item in raw.get("time_based", [])
+        ]
+        triggers.extend(
+            FollowUpTrigger(
+                trigger_type=FollowUpTriggerType.EVENT_BASED,
+                condition=str(item.get("event") or item.get("trigger")),
+                template=item["template"],
+                delay_days=int(item.get("delay_days", 0)),
+            )
+            for item in raw.get("trigger_based", [])
+        )
+        return triggers
+
+    def compute_follow_up_action(
+        self, sequence_id: str, trigger_event: str
+    ) -> tuple[str, timedelta] | None:
+        """Resolve an event to its configured follow-up template and delay."""
+        for trigger in self.get_follow_up_triggers(sequence_id):
+            if trigger.condition == trigger_event:
+                return trigger.template, timedelta(days=trigger.delay_days)
         return None
+
+    def get_breakup_template(self, sequence_id: str) -> str | None:
+        """Return configured breakup template for a sequence."""
+        config = self.load_sequence(sequence_id).breakup_sequence or {}
+        return config.get("template") if config.get("enabled") else None
+
+    def get_re_engagement_template(self, sequence_id: str) -> str | None:
+        """Return configured re-engagement template for a sequence."""
+        config = self.load_sequence(sequence_id).re_engagement_campaign or {}
+        return config.get("template") if config.get("enabled") else None
+
+    def inject_meeting_link(
+        self, sequence_id: str, personalization_data: Dict[str, Any], booking_url: str
+    ) -> Dict[str, Any]:
+        """Return copied personalization with the configured meeting CTA."""
+        data = dict(personalization_data)
+        data["booking_url"] = booking_url
+        template = self.load_sequence(sequence_id).meeting_link_template or "{{ booking_url }}"
+        data["meeting_link"] = Environment(autoescape=True).from_string(template).render(**data)
+        return data
 
     def get_breakup_sequence(self) -> Optional[Dict[str, Any]]:
         """Get breakup sequence configuration."""

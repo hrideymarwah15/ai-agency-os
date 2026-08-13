@@ -1,0 +1,7 @@
+Quick check-in, {{ lead.name }}
+Hi {{ lead.name }},
+
+I wanted to reconnect about {{ lead.company }} and see whether we can help with {{ lead.pain_point | default('your current priorities') }}.
+
+{{ meeting_link | default(owner.calendar_link) }}
+{{ unsubscribe_footer }}

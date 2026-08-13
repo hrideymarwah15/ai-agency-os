@@ -1,0 +1,7 @@
+One last note for {{ lead.company }}
+Hi {{ lead.name }},
+
+This is my final note. If {{ lead.pain_point | default('this priority') }} resurfaces, I am happy to help.
+
+{{ meeting_link | default(owner.calendar_link) }}
+{{ unsubscribe_footer }}
