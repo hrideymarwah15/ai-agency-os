@@ -35,6 +35,7 @@ from backend.services.audits.worker import audit_worker
 from backend.services.discovery.worker import discovery_worker
 from backend.services.opportunities.worker import opportunity_worker
 from backend.services.pricing.worker import pricing_worker
+from backend.services.proposal.worker import proposal_worker
 from backend.services.scheduler import build_scheduler, write_heartbeat
 
 if TYPE_CHECKING:
@@ -87,13 +88,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 # and website audits each poll their own topic, one job at a time.
     worker_task = asyncio.create_task(discovery_worker())
     audit_worker_task = asyncio.create_task(audit_worker())
+    proposal_worker_task = asyncio.create_task(proposal_worker())
     opportunity_worker_task = asyncio.create_task(opportunity_worker())
     pricing_worker_task = asyncio.create_task(pricing_worker())
     yield
     worker_task.cancel()
     audit_worker_task.cancel()
+    proposal_worker_task.cancel()
     opportunity_worker_task.cancel()
     pricing_worker_task.cancel()
+        proposal_worker_task,
     await asyncio.gather(
         worker_task, audit_worker_task, opportunity_worker_task, pricing_worker_task, return_exceptions=True
     )
