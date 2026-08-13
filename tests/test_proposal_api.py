@@ -8,7 +8,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from backend.api.proposals import approve_proposal, send_proposal
+from backend.api.proposals import _validate_owner_html, approve_proposal, send_proposal
 from backend.database import Business, BusinessStatus, Proposal, ProposalStatus, ServiceType
 from backend.main import app
 
@@ -46,6 +46,12 @@ def test_routes_registered() -> None:
     assert "/api/v1/proposals/{proposal_id}/pdf" in paths
     assert "/api/v1/proposals/{proposal_id}/approve" in paths
     assert "/client/proposals/{proposal_id}" in paths
+
+
+def test_owner_edit_rejects_executable_html() -> None:
+    with pytest.raises(HTTPException) as exc:
+        _validate_owner_html('<script>alert("x")</script>')
+    assert exc.value.status_code == 422
 
 
 def test_approve_then_send_creates_contract_and_delivery_outbox() -> None:

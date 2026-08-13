@@ -46,6 +46,17 @@ class EditRequest(BaseModel):
     content: str = Field(min_length=1, max_length=100000)
 
 
+_DISALLOWED_OWNER_HTML = ("<script", "javascript:", "<iframe", "<object", "<embed")
+
+
+def _validate_owner_html(content: str) -> str:
+    """Reject executable owner HTML before it reaches a trusted rendered section."""
+    folded = content.casefold()
+    if any(marker in folded for marker in _DISALLOWED_OWNER_HTML) or " onerror=" in folded or " onload=" in folded:
+        raise HTTPException(status_code=422, detail="Executable HTML is not allowed in proposal sections")
+    return content
+
+
 def _serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(config.settings.session_secret, salt="proposal-client-v1")
 
@@ -149,7 +160,9 @@ async def edit_proposal(proposal_id: UUID, body: EditRequest, owner: str = Depen
     proposal = await _get_proposal(session, proposal_id)
     if proposal.status not in {ProposalStatus.DRAFT, ProposalStatus.APPROVED}:
         raise HTTPException(status_code=409, detail="Sent proposals cannot be edited")
-    proposal = await ProposalGenerator().regenerate_section(session, proposal, body.section, body.content)
+    proposal = await ProposalGenerator().regenerate_section(
+        session, proposal, body.section, _validate_owner_html(body.content)
+    )
     await session.commit()
     return _proposal_dict(proposal)
 
