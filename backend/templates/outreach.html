@@ -113,10 +113,10 @@
   <p class="table-note" id="table-note">Loading campaigns...</p>
 </section>
 
-<!-- Sequence Editor (View Only for v1) -->
+<!-- Sequence Editor -->
 <section class="section">
   <h2 class="section-title">Outreach Sequences</h2>
-  <p>View and manage outreach sequences. Sequences are defined in YAML configuration.</p>
+  <p>View and manage YAML-backed outreach sequences.</p>
   <div class="table-scroll">
     <table class="table" aria-label="Outreach sequences" id="sequences-table">
       <thead>
@@ -133,6 +133,22 @@
     </table>
   </div>
 </section>
+
+<section class="section" id="objection-library">
+  <h2 class="section-title">Objection Library</h2>
+  <p>Edit approved response copy through the owner-only objection API.</p>
+  <div id="objection-editor"></div>
+</section>
+
+<section class="section" id="meeting-config">
+  <h2 class="section-title">Meeting Scheduler</h2>
+  <p id="cal-config-status">Checking Cal.com configuration…</p>
+</section>
+
+<section class="section" id="reply-log">
+  <h2 class="section-title">Reply Classification Log</h2>
+  <p>Open a campaign to review classifications, confidence, and escalation status.</p>
+</section>
 {% endif %}
 {% endblock %}
 {% block scripts %}
@@ -148,6 +164,8 @@ async function initOutreachDashboard() {
     await Promise.all([
       loadLeads(),
       loadSequences(),
+      loadObjections(),
+      loadMeetingConfig(),
       loadCampaigns(),
       loadMetrics(),
       loadKanbanBoard()
@@ -166,6 +184,24 @@ async function initOutreachDashboard() {
     console.error('Failed to initialize outreach dashboard:', error);
     showError('Failed to load outreach data. Please refresh the page.');
   }
+}
+
+async function loadObjections() {
+  const response = await fetch('/api/v1/outreach/objections', {credentials: 'include'});
+  if (!response.ok) return;
+  const data = await response.json();
+  document.getElementById('objection-editor').innerHTML = Object.entries(data.objections)
+    .map(([type, template]) => `<label>${type}<textarea data-objection="${type}">${template}</textarea></label>`)
+    .join('');
+}
+
+async function loadMeetingConfig() {
+  const response = await fetch('/api/v1/outreach/meetings/config', {credentials: 'include'});
+  if (!response.ok) return;
+  const data = await response.json();
+  document.getElementById('cal-config-status').textContent = data.configured
+    ? `Connected as ${data.username}; event type ${data.event_type_id}`
+    : 'Cal.com credentials are not fully configured.';
 }
 
 async function loadLeads() {
