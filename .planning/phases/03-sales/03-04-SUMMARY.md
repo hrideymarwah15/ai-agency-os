@@ -41,6 +41,7 @@ decisions:
   - "Use Alembic revision 0009 because 0006 is already pricing_engine and 0008 is the current migration head."
   - "Proposal send creates proposal.deliver durable outbox work and does not claim an email was sent without a configured delivery consumer."
   - "Client proposal access uses an itsdangerous signed token plus a database hash and expiry, with noindex headers and view audit logging."
+  - "Proposal delivery uses DELIVERY_QUEUED until SendGrid accepts the message; only then are Proposal.SENT and Business.NEGOTIATING committed."
 metrics:
   duration: "about 2h"
   completed: 2026-08-13
@@ -61,6 +62,7 @@ metrics:
 - `PDFRenderer` supports WeasyPrint first, Playwright fallback, printable HTML, and optional `python-docx` output. Rendering is bounded by a semaphore and timeout; missing optional dependencies return an explicit runtime error.
 - Added the serial `proposal.generate` outbox worker, owner-protected proposal routes, signed expiring client view, owner builder shell, pricing/version panels, approval flow, and durable `proposal.deliver` handoff.
 - Owner section edits are validated against executable HTML markers, versioned, snapshot prior content, and audit logged. Approval enqueues `contract.generate`; delivery changes the business to `NEGOTIATING` only after approval and client email validation.
+- Verifier remediation replaced marker checks with a conservative HTML parser/allowlist, added `DELIVERY_QUEUED`, implemented SendGrid delivery consumption with retries/stale recovery/idempotency, made migration startup fail closed, and upgraded the builder with contenteditable sections, bounded pricing controls, and version comparison.
 
 ## Task Commits
 
@@ -69,6 +71,7 @@ metrics:
 3. `2e30dc5` — owner API, builder UI, focused proposal tests, and router registration
 4. `7bcea5f` — proposal worker startup/shutdown wiring in lifespan
 5. `e806c10` — executable HTML validation for owner edits
+6. `ff22e03` — verifier remediation for enum migration, sanitization, durable delivery, rendering, builder, and regression coverage
 
 ## Verification
 
@@ -78,6 +81,8 @@ metrics:
 - `alembic heads` — `0009 (head)`; `0008 -> 0009` migration chain confirmed.
 - OpenAPI route smoke check confirmed proposal list/generate/PDF and signed client-view paths.
 - `git diff --check` over all plan files — passed.
+- Verifier remediation suite (proposal generator/templates/PDF/API/migration/worker plus pricing, meeting, and outreach integration) — **49 passed**, 7 existing environment/deprecation warnings.
+- Committed `backend/main.py` compiled independently after repairing the prior malformed gather list; migration exceptions and 30-second timeouts now abort startup.
 
 ## Deviations from Plan
 
@@ -97,21 +102,35 @@ metrics:
 - **Files modified:** `backend/api/proposals.py`, `tests/test_proposal_api.py`
 - **Commit:** `e806c10`
 
+**3. [Rule 1 - Lifecycle bug] Deferred SENT/NEGOTIATING until provider success**
+- **Found during:** Independent verifier review
+- **Issue:** The API marked delivery complete before any provider attempt, and worker claims had no stale recovery or retry scheduling.
+- **Fix:** Added `DELIVERY_QUEUED`, a SendGrid-backed `proposal.deliver` consumer, three-attempt retry scheduling, stale claim recovery, idempotent SENT handling, and correlation audit after successful provider acceptance.
+- **Files modified:** `backend/database.py`, `backend/alembic/versions/0009_proposal_generator.py`, `backend/api/proposals.py`, `backend/services/proposal/worker.py`, `backend/services/outreach/clients.py`
+- **Commit:** `ff22e03`
+
+**4. [Rule 1 - Migration bug] Evolved PostgreSQL enum safely**
+- **Found during:** Independent verifier review
+- **Issue:** ORM enum labels were absent from the existing `proposalstatus` type.
+- **Fix:** Upgrade adds `APPROVED` and `DELIVERY_QUEUED` before new columns; downgrade normalizes rows and realistically rebuilds the PostgreSQL enum without those labels.
+- **Files modified:** `backend/alembic/versions/0009_proposal_generator.py`
+- **Commit:** `ff22e03`
+
 ### Intentional Adjustments
 
 - Existing `backend/main.py` had unrelated dirty lifespan/router changes from prerequisite work. Only proposal router and worker additions were staged; all other changes remain uncommitted.
-- The repository does not currently install WeasyPrint or Playwright. No package was installed. PDF/DOCX code fails clearly with HTTP 503/runtime errors when optional dependencies are absent, while HTML remains available.
-- The existing codebase has no real proposal email consumer. `/send` therefore queues `proposal.deliver` with recipient, signed client path, and available formats; it does not claim an email was sent.
+- The repository does not currently install WeasyPrint or Playwright. No package was installed. PDF/DOCX code fails clearly with HTTP 503/runtime errors when optional dependencies are absent, while HTML remains available; fallback and dual-failure paths are covered by injected tests.
+- SendGrid delivery is now implemented, but production delivery still requires a valid `SENDGRID_API_KEY` and verified sender. Without credentials, the durable event retries and remains `DELIVERY_QUEUED`, then becomes `FAILED` after three attempts.
 
 ## Known Stubs
 
 - `backend/templates/proposals/testimonials.j2`: v1 testimonial data is intentionally empty until approved testimonials/content are supplied; the section still renders and is persisted.
-- `backend/services/proposal/pdf.py`: Playwright fallback requires the already-declared browser package and installed Chromium; this environment lacks both optional renderer paths.
+- `backend/services/proposal/pdf.py`: Playwright fallback requires the already-declared browser package and installed Chromium; this environment lacks both optional renderer paths, so live PDF bytes were not produced locally.
 
 ## Deferred Issues
 
 - Apply `alembic upgrade head` against a configured PostgreSQL database during deployment; the local environment used migration graph/compile verification because no database credentials/server were available.
-- Implement the downstream `proposal.deliver` email consumer and contract generation consumer in the subsequent sales/legal plans.
+- Implement the downstream contract generation consumer in the subsequent legal plan.
 
 ## Threat Flags
 
@@ -123,7 +142,7 @@ metrics:
 ## Self-Check: PASSED
 
 - Created files exist, including migration, proposal service/API/templates, builder, and four focused test modules.
-- Commits `76c8bb4`, `03a58c3`, `2e30dc5`, `7bcea5f`, and `e806c10` exist in git history.
+- Commits `76c8bb4`, `03a58c3`, `2e30dc5`, `7bcea5f`, `e806c10`, and `ff22e03` exist in git history.
 - Unrelated dirty worktree changes were preserved and not staged by this plan.
 
 ---
