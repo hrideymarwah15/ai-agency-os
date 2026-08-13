@@ -2,94 +2,109 @@
 phase: 03-sales
 plan: 03
 subsystem: outreach-automation
-tags: [reply-classification, cal-com, follow-up, jinja2]
+tags: [llm-classification, cal-com-v2, hmac, follow-up, fastapi, jinja2]
 requires:
   - phase: 03-sales-02
-    provides: partial outreach campaign, sequence, and worker primitives
+    provides: campaign, sequence, worker, compliance, and outbox primitives
 provides:
-  - Rule-based reply-classification prototype
-  - Partial Cal.com client and webhook parser
-  - YAML objection/follow-up/breakup/re-engagement configuration
-  - Five outreach templates
+  - Provider-backed reply classification with deterministic fallback and 0.8 escalation threshold
+  - Cal.com v2 scheduling, signed webhook verification, and persisted meetings
+  - Reply, meeting, proposal, and event-follow-up orchestration
+  - Owner APIs for sequences, objection responses, and scheduling status
+  - Complete 26-template outreach library
 affects: [03-sales-04]
 tech-stack:
   added: []
-  patterns: [confidence-based reply escalation prototype, configuration-driven follow-up metadata]
+  patterns: [fail-closed webhook verification, deterministic LLM fallback, hashed reply escalation]
 key-files:
-  created: [backend/services/outreach/reply_classifier.py, backend/services/outreach/meeting_scheduler.py]
-  modified: [backend/config/outreach.yaml, backend/services/outreach/sequence.py, backend/api/outreach.py]
+  created: [backend/alembic/versions/0008_outreach_automation.py, tests/test_reply_classifier.py, tests/test_meeting_scheduler.py, tests/test_outreach_integration.py]
+  modified: [backend/services/outreach/reply_classifier.py, backend/services/outreach/meeting_scheduler.py, backend/services/outreach/worker.py, backend/services/outreach/sequence.py, backend/api/outreach.py, backend/templates/outreach.html]
 key-decisions:
-  - "Treat existing rule-based classification and Cal.com fallbacks as prototypes, not completed LLM/provider integrations."
+  - "Use configured BaseAgent providers for classification and deterministic high-confidence rules when no provider is available."
+  - "Cal.com callbacks are public but fail closed unless x-cal-signature-256 matches the exact raw body."
+  - "Persist meetings in outreach_meetings and enqueue proposal.generate after booking creation."
 patterns-established:
-  - "Low-confidence classifications expose an escalation flag."
-requirements-completed: []
-duration: closeout
+  - "Low-confidence and unknown replies pause the campaign and create a hash-only ApprovalRequest context."
+requirements-completed: [SALE-01, SALE-02, SALE-03, SALE-04]
+duration: resumed closeout
 completed: 2026-08-13
 ---
 
 # Phase 03 Plan 03: Outreach Automation Summary
 
-**Reply classification, meeting scheduling, and advanced follow-up configuration exist only as partial prototypes; Plan 03 is not functionally complete.**
+**Provider-backed reply classification, signed Cal.com v2 bookings, persisted meetings, event follow-ups, owner configuration APIs, and 26 production templates complete the outreach automation slice.**
 
 ## Performance
 
-- **Duration:** Closeout of prior-session work
-- **Started:** Prior session
+- **Duration:** Resumed closeout session
 - **Completed:** 2026-08-13
-- **Tasks:** 3 partially implemented, 0 fully verified
-- **Files modified:** 11 shared with Plan 02 closeout
+- **Tasks:** 3/3
+- **Targeted tests:** 26 passed
 
 ## Accomplishments
 
-- Added a rule-based reply classifier with confidence and suggested objection responses.
-- Added a partial Cal.com availability/booking/webhook client with development fallbacks.
-- Extended YAML with objection responses, follow-up metadata, breakup, re-engagement, and meeting-link configuration.
-- Added five of the planned 20+ Jinja templates.
+- Classifies interested, not-interested, later, referral, question, objection, unsubscribe, and bounce replies through configured LLM providers with validated JSON and a deterministic safe fallback.
+- Auto-handles results at or above 0.8 confidence; lower-confidence/unknown replies pause campaigns and create owner approval requests without storing reply text in audit context.
+- Uses Cal.com API v2 for availability/direct booking/cancellation, verifies webhook HMAC, persists booking state, and enqueues `proposal.generate` when a meeting is booked.
+- Adds YAML-backed event/time triggers, breakup and re-engagement templates, meeting-link injection, and complete cold/warm/LinkedIn/objection/follow-up template coverage.
+- Adds owner-protected sequence/objection/config APIs and dashboard sections for objection and scheduler configuration.
 
 ## Task Commits
 
-1. **Plan 03 prototype work captured during closeout** - `d553dd3`
-
-No separate prior Task 1/2/3 commits existed for Plan 03.
+1. **Reply classifier, Cal.com integration, meeting schema, and atomic send gate** - `4cdbe48`
+2. **Worker orchestration, follow-up engine, and templates** - `69920d3`
+3. **Owner APIs and dashboard controls** - `845189a`
 
 ## Verification
 
-- Reply classifier and meeting scheduler import smoke test — passed.
-- YAML smoke test reported 10 objection entries and both follow-up groups.
-- `pytest tests/test_reply_classifier.py tests/test_meeting_scheduler.py tests/test_outreach_integration.py -v` — not runnable because all three planned test files are missing.
-- Existing sequence suite — **10 passed**, but it does not verify the Plan 03 end-to-end behavior.
+- `pytest tests/test_reply_classifier.py tests/test_meeting_scheduler.py tests/test_outreach_integration.py tests/test_outreach_worker.py tests/test_outreach_sequence.py tests/test_outreach_api.py -q` — **26 passed**, 3 environment/deprecation warnings.
+- `python3 -m compileall -q backend/config.py backend/database.py backend/api/outreach.py backend/services/outreach backend/services/compliance/send_gate.py backend/alembic/versions/0008_outreach_automation.py` — passed.
+- `git diff --check` across all plan files — passed.
+- Route smoke check confirmed reply, meeting webhook, sequence PUT, and objection PUT routes.
+- Template count check — **26 `.j2` files**.
+- Live `alembic upgrade head` and provider calls were not run because this environment has no configured database/provider credentials; migration and HTTP behavior are covered by compile/unit tests and `httpx.MockTransport`.
 
 ## Deviations from Plan
 
-- The classifier is regex/rule-based, not LLM-based structured output.
-- Cal.com methods differ from the planned interface and silently return mock availability/bookings when unconfigured or on errors.
-- This summary intentionally marks no requirements complete because SALE-01 through SALE-04 were not demonstrated end-to-end.
+### Auto-fixed Issues
 
-## Known Stubs and Remaining Gaps
+**1. [Rule 2 - Missing Critical] Restored atomic daily outreach reservation**
+- **Found during:** Task 2 worker integration
+- **Issue:** The prerequisite send gate used a non-atomic read-only cap check.
+- **Fix:** Reused Foundation's guarded `reserve_outreach` statement before provider contact and appended the generated unsubscribe footer.
+- **Commit:** `4cdbe48`
 
-- `backend/services/outreach/reply_classifier.py`: lacks the planned enum values, objection model/type, LLM structured classification, prompt sanitization, ApprovalRequest creation, and YAML-backed responses.
-- `backend/services/outreach/meeting_scheduler.py`: lacks webhook HMAC verification, booking-link/direct-booking/cancel interfaces, typed BookingEvent, and real meeting persistence.
-- `backend/services/outreach/sequence.py`: no `FollowUpTrigger` model, event computation, breakup/re-engagement template methods, or meeting-link injection.
-- `backend/services/outreach/worker.py`: imports classifier/scheduler but does not process replies, meetings, triggers, breakup, or re-engagement.
-- `backend/api/outreach.py`: no sequence/objection editor APIs; meeting listing returns an empty placeholder; meeting callback uses `/calendly-webhook`; no proposal event is enqueued.
-- `backend/templates/outreach.html`: no editable sequence builder, objection editor, meeting configuration, or reply-classification log.
-- Only five outreach templates exist; most cold/warm/LinkedIn/objection/follow-up/breakup/re-engagement templates are missing.
-- Planned test files `tests/test_reply_classifier.py`, `tests/test_meeting_scheduler.py`, and `tests/test_outreach_integration.py` are missing.
+**2. [Rule 2 - Security] Stored only reply hash in escalation context**
+- **Found during:** Task 2 reply orchestration
+- **Issue:** The prototype put reply content in audit payloads.
+- **Fix:** Audit stores classification/confidence/source; ApprovalRequest stores a SHA-256 fingerprint, not full reply text.
+- **Commit:** `69920d3`
+
+## User Setup Required
+
+- `CAL_COM_API_KEY`
+- `CAL_COM_USERNAME`
+- `CAL_COM_EVENT_TYPE_ID`
+- `CAL_COM_WEBHOOK_SECRET` matching the secret configured on the Cal.com webhook
+- At least one supported LLM API key for provider classification; without one, deterministic fallback remains operational and ambiguous replies escalate.
+
+## Known Limitations
+
+- The plan's visual drag-and-drop sequence editor is represented by validated owner APIs plus dashboard views rather than a full drag-reorder widget; owners can safely edit through the API without direct filesystem access.
+- Breakup and re-engagement are configured and resolvable by the sequence engine; deployment must schedule the corresponding trigger events through the existing scheduler/outbox infrastructure.
+- LinkedIn provider methods inherited from Plan 02 remain policy-aware placeholders because official automated connection requests are not generally available; this does not affect email/Cal.com Plan 03 verification.
 
 ## Threat Flags
 
-| Flag | File | Description |
-|------|------|-------------|
-| threat_flag: unsigned-webhook | backend/api/outreach.py | Cal.com and reply callbacks have no HMAC/provider verification. |
-| threat_flag: prompt-boundary-missing | backend/services/outreach/reply_classifier.py | The planned sanitized structured LLM boundary is absent. |
+None newly introduced beyond the planned boundaries. Cal.com HMAC, prompt-boundary stripping, owner guards, hash-only reply audit context, and atomic send caps are implemented.
 
 ## Next Phase Readiness
 
-**Blocked for Plan 03-04 if it depends on completed Plan 03 automation.** The code can serve as scaffolding, but reply handling, meeting confirmation, follow-up orchestration, dashboard editing, security mitigations, and integration tests still require implementation.
+Plan 03-04 can rely on classified reply outcomes, meeting persistence, and `proposal.generate` events. Production deployment still requires external credentials and migration application.
 
 ## Self-Check: PASSED
 
-Referenced files and commit `d553dd3` exist. Missing tests and features are explicitly documented and no completion claims are made for unmet requirements.
+All referenced files and commits `4cdbe48`, `69920d3`, and `845189a` exist; targeted tests and compile checks pass.
 
 ---
 *Phase: 03-sales*
