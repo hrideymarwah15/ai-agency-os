@@ -1,4 +1,5 @@
 <section class="proposal-section" id="executive-summary"><h2>Executive summary</h2>
 <p>{{ executive_summary or "A tailored solution for the priorities discussed with " ~ lead.name ~ "." }}</p>
 {% if lead.pain_points %}<p><strong>Priorities:</strong> {{ lead.pain_points | join(', ') }}</p>{% endif %}
+{% if meeting_notes %}<p><strong>From our conversation:</strong> {{ meeting_notes }}</p>{% endif %}
 {% if pricing.recommended_price %}<p class="price">Recommended investment: {{ pricing.recommended_price }}</p>{% endif %}</section>

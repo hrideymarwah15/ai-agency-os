@@ -33,3 +33,30 @@ def test_docx_reports_optional_dependency(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "docx", None)
     with pytest.raises(RuntimeError, match="optional"):
         PDFRenderer().render_docx("<h1>Proposal</h1>")
+
+
+def test_weasyprint_failure_uses_playwright_fallback(monkeypatch) -> None:
+    class BrokenHTML:
+        def __init__(self, **kwargs):
+            pass
+
+        def write_pdf(self):
+            raise ValueError("broken renderer")
+
+    renderer = PDFRenderer()
+    async def fallback(html: str) -> bytes:
+        return b"%PDF-fallback"
+
+    monkeypatch.setitem(sys.modules, "weasyprint", SimpleNamespace(HTML=BrokenHTML))
+    monkeypatch.setattr(renderer, "_render_playwright", fallback)
+    assert asyncio.run(renderer.render_pdf("<p>Proposal</p>")) == b"%PDF-fallback"
+
+
+def test_pdf_reports_clear_error_when_both_renderers_fail(monkeypatch) -> None:
+    renderer = PDFRenderer()
+    monkeypatch.setitem(sys.modules, "weasyprint", None)
+    async def broken(html: str) -> bytes:
+        raise RuntimeError("missing")
+    monkeypatch.setattr(renderer, "_render_playwright", broken)
+    with pytest.raises(RuntimeError, match="WeasyPrint and Playwright failed"):
+        asyncio.run(renderer.render_pdf("<p>Proposal</p>"))

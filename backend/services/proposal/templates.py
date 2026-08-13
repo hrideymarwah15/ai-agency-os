@@ -64,7 +64,6 @@ class ProposalTemplateEngine:
         rendered = {
             block.value: self.render_component(block, context)
             for block in SECTION_ORDER
-            if block != ComponentBlock.TESTIMONIALS or context.get("testimonials", True)
         }
         return self.environment.get_template("base_proposal.j2").render(
             **context, sections=rendered, section_order=[block.value for block in SECTION_ORDER]

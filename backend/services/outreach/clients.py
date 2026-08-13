@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 
 import httpx
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
 from backend.services.audit import AuditService
@@ -45,6 +46,7 @@ class SendGridClient:
         text_content: str,
         campaign_id: str,
         message_id: str,
+        audit_session: AsyncSession | None = None,
     ) -> Dict[str, Any]:
         """Send email via SendGrid API.
         
@@ -88,21 +90,21 @@ class SendGridClient:
             # Extract message ID from response headers
             sendgrid_message_id = response.headers.get("X-Message-Id", "")
             
-            # Audit the send
-            await AuditService.record(
-                None,  # session - in practice would be passed
-                actor="system",
-                action="outreach.sent",
-                entity_type="email",
-                entity_id=to_email,
-                payload={
-                    "campaign_id": campaign_id,
-                    "message_id": message_id,
-                    "sendgrid_message_id": sendgrid_message_id,
-                    "to_email": to_email,
-                    "subject": subject,
-                },
-            )
+            if audit_session is not None:
+                await AuditService.record(
+                    audit_session,
+                    actor="system",
+                    action="outreach.sent",
+                    entity_type="email",
+                    entity_id=to_email,
+                    payload={
+                        "campaign_id": campaign_id,
+                        "message_id": message_id,
+                        "sendgrid_message_id": sendgrid_message_id,
+                        "to_email": to_email,
+                        "subject": subject,
+                    },
+                )
             
             return {
                 "sendgrid_message_id": sendgrid_message_id,
@@ -110,34 +112,26 @@ class SendGridClient:
                 "status_code": response.status_code
             }
         except httpx.HTTPStatusError as e:
-            # Audit the failure
-            await AuditService.record(
-                None,
-                actor="system",
-                action="outreach.send_failed",
-                entity_type="email",
-                entity_id=to_email,
-                payload={
-                    "campaign_id": campaign_id,
-                    "message_id": message_id,
-                    "status_code": e.response.status_code,
-                    "error": str(e),
-                },
-            )
+            if audit_session is not None:
+                await AuditService.record(
+                    audit_session,
+                    actor="system",
+                    action="outreach.send_failed",
+                    entity_type="email",
+                    entity_id=to_email,
+                    payload={"campaign_id": campaign_id, "message_id": message_id, "status_code": e.response.status_code, "error": str(e)},
+                )
             raise
         except Exception as e:
-            await AuditService.record(
-                None,
-                actor="system",
-                action="outreach.send_failed",
-                entity_type="email",
-                entity_id=to_email,
-                payload={
-                    "campaign_id": campaign_id,
-                    "message_id": message_id,
-                    "error": str(e),
-                },
-            )
+            if audit_session is not None:
+                await AuditService.record(
+                    audit_session,
+                    actor="system",
+                    action="outreach.send_failed",
+                    entity_type="email",
+                    entity_id=to_email,
+                    payload={"campaign_id": campaign_id, "message_id": message_id, "error": str(e)},
+                )
             raise
 
     def parse_webhook(self, payload: Dict[str, Any]) -> List[Dict[str, Any]]:

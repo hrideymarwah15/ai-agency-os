@@ -50,8 +50,13 @@ class PDFRenderer:
                     asyncio.to_thread(HTML(string=prepared, base_url=str(base_url or Path.cwd())).write_pdf),
                     timeout=30,
                 )
-            except (ImportError, OSError, RuntimeError, TimeoutError):
-                return await asyncio.wait_for(self._render_playwright(prepared), timeout=30)
+            except Exception as weasy_error:
+                try:
+                    return await asyncio.wait_for(self._render_playwright(prepared), timeout=30)
+                except Exception as fallback_error:
+                    raise RuntimeError(
+                        "PDF rendering unavailable: WeasyPrint and Playwright failed"
+                    ) from fallback_error
 
     async def _render_playwright(self, html: str) -> bytes:
         try:

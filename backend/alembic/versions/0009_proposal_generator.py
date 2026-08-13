@@ -18,6 +18,10 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Add structured proposal sections and lifecycle metadata."""
+    # Existing deployments already own proposalstatus. Add values before the
+    # table columns so ORM writes cannot fail after this revision applies.
+    op.execute("ALTER TYPE proposalstatus ADD VALUE IF NOT EXISTS 'APPROVED'")
+    op.execute("ALTER TYPE proposalstatus ADD VALUE IF NOT EXISTS 'DELIVERY_QUEUED'")
     columns = [
         ("executive_summary", sa.Text()),
         ("website_audit", postgresql.JSONB(), sa.text("'{}'::jsonb")),
@@ -58,6 +62,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Remove structured proposal fields."""
+    # PostgreSQL cannot remove enum labels in place. Rebuild the type after
+    # normalizing rows that use the new lifecycle values.
+    op.execute("UPDATE proposals SET status = 'DRAFT' WHERE status IN ('APPROVED', 'DELIVERY_QUEUED')")
     op.drop_index("ix_proposals_created_at", table_name="proposals")
     op.drop_index("ix_proposals_status", table_name="proposals")
     op.drop_index("ix_proposals_business_id", table_name="proposals")
@@ -69,3 +76,7 @@ def downgrade() -> None:
         "opportunity_analysis", "website_audit", "executive_summary",
     ]:
         op.drop_column("proposals", name)
+    op.execute("ALTER TABLE proposals ALTER COLUMN status TYPE text USING status::text")
+    op.execute("DROP TYPE proposalstatus")
+    op.execute("CREATE TYPE proposalstatus AS ENUM ('DRAFT', 'SENT', 'UNDER_NEGOTIATION', 'ACCEPTED', 'REJECTED', 'EXPIRED')")
+    op.execute("ALTER TABLE proposals ALTER COLUMN status TYPE proposalstatus USING status::proposalstatus")

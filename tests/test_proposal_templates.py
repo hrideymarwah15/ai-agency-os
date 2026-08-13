@@ -17,7 +17,7 @@ def context() -> dict:
         "faqs": [{"question": "Start?", "answer": "Approve."}], "testimonials": [],
         "terms": {"payment_terms": "50/50", "ip_clause": "On payment", "liability_cap": "Fees", "termination": "Notice", "jurisdiction": "Local"},
         "next_steps": {"cta": "Approve", "expires_at": "2026-08-27", "contact_info": "owner@test"},
-        "executive_summary": "Focused delivery", "service_type": "website", "agency_brand": {"name": "Agency"},
+        "executive_summary": "Focused delivery", "meeting_notes": "Notes", "service_type": "website", "agency_brand": {"name": "Agency"},
     }
 
 
@@ -27,6 +27,8 @@ def test_all_ten_sections_render_and_escape(context: dict) -> None:
     assert len(rendered) == 10
     assert all(value.strip() for value in rendered.values())
     assert "<script>" not in engine.render_full_proposal(context)
+    assert engine.render_full_proposal(context).count('class="proposal-section"') == 10
+    assert "No approved testimonials are included" in engine.render_full_proposal(context)
 
 
 @pytest.mark.parametrize("service", ["website", "automations", "chatbot", "custom_ai"])

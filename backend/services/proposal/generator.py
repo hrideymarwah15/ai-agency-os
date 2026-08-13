@@ -130,6 +130,7 @@ class ProposalGenerator:
             "testimonials": [], "terms": {"payment_terms": "50% upfront, 50% on acceptance", "ip_clause": "Client receives project IP after final payment", "liability_cap": "Fees paid", "termination": "Written notice", "jurisdiction": "Applicable local law"},
             "next_steps": {"cta": "Approve this proposal to schedule kickoff.", "expires_at": expires.date().isoformat(), "contact_info": config.settings.agency_owner_email, "meeting_link": ""},
             "executive_summary": f"{lead.name} can address its current priorities with a focused {package} engagement.",
+            "meeting_notes": data.meeting_notes,
             "service_type": service, "agency_brand": {"name": config.settings.agency_name}, "owner": {"name": config.settings.agency_owner_name},
         }
         sections = {block.value: self.templates.render_component(block, context) for block in SECTION_ORDER}
@@ -148,7 +149,7 @@ class ProposalGenerator:
         session.add(proposal)
         await session.flush()
         await AuditService.record(session, actor="system", action="proposal.generate", entity_type="proposal", entity_id=str(proposal.id),
-                                  correlation_id=str(proposal.id), payload={"lead_id": str(lead.id), "package": package, "pricing": pricing})
+                                  correlation_id=str(proposal.id), payload={"lead_id": str(lead.id), "package": package, "pricing": pricing, "meeting_notes_included": bool(data.meeting_notes)})
         return proposal
 
     async def regenerate_section(self, session: AsyncSession, proposal: Proposal, section: ComponentBlock | str, content: str) -> Proposal:

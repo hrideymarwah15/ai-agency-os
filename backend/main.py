@@ -72,7 +72,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     cfg = Config(str(PROJECT_ROOT / "alembic.ini"))
     cfg.set_main_option("script_location", str(PROJECT_ROOT / "backend" / "alembic"))
     # env.py runs its own asyncio.run() — must be off the event loop (Pitfall 3).
-    await asyncio.to_thread(command.upgrade, cfg, "head")
+    # Abort startup on migration error or timeout; serving a partial schema is unsafe.
+    await asyncio.wait_for(
+        asyncio.to_thread(command.upgrade, cfg, "head"), timeout=30
+    )
     # LangGraph durable checkpoints — postgresql:// DSN (psycopg, not asyncpg).
     # from_conn_string is an async context manager; setup() must run once (Pitfall 3).
     async with AsyncPostgresSaver.from_conn_string(database.postgres_dsn()) as checkpointer:
@@ -97,9 +100,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     proposal_worker_task.cancel()
     opportunity_worker_task.cancel()
     pricing_worker_task.cancel()
-        proposal_worker_task,
     await asyncio.gather(
-        worker_task, audit_worker_task, opportunity_worker_task, pricing_worker_task, return_exceptions=True
+        worker_task,
+        audit_worker_task,
+        proposal_worker_task,
+        opportunity_worker_task,
+        pricing_worker_task,
+        return_exceptions=True,
     )
     scheduler.shutdown(wait=False)
     await database.close_db()

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import secrets
+from html.parser import HTMLParser
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -43,18 +45,65 @@ class EditRequest(BaseModel):
     """Replace one rendered proposal section."""
 
     section: ComponentBlock
-    content: str = Field(min_length=1, max_length=100000)
+    content: str | None = Field(default=None, min_length=1, max_length=100000)
+    discount_pct: float | None = Field(default=None, ge=0, le=100)
 
 
-_DISALLOWED_OWNER_HTML = ("<script", "javascript:", "<iframe", "<object", "<embed")
+_SAFE_OWNER_TAGS = {"p", "br", "strong", "em", "b", "i", "u", "h2", "h3", "ul", "ol", "li", "a", "blockquote", "table", "thead", "tbody", "tr", "th", "td"}
+_SAFE_OWNER_ATTRS = {"a": {"href", "title", "target", "rel"}}
+
+
+class _SafeHTMLParser(HTMLParser):
+    """Conservative allowlist sanitizer for owner-edited proposal fragments."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.output: list[str] = []
+
+    @staticmethod
+    def _safe_url(value: str) -> bool:
+        normalized = html.unescape(value).strip().casefold().replace("\x00", "")
+        compact = "".join(normalized.split())
+        return compact.startswith(("https://", "http://", "/", "#")) and not compact.startswith(("javascript:", "data:", "vbscript:"))
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.casefold()
+        if tag not in _SAFE_OWNER_TAGS:
+            raise ValueError(f"Unsupported HTML tag: {tag}")
+        allowed = _SAFE_OWNER_ATTRS.get(tag, set())
+        rendered: list[str] = []
+        for name, value in attrs:
+            name = name.casefold()
+            if name.startswith("on") or name not in allowed:
+                raise ValueError(f"Unsupported HTML attribute: {name}")
+            if name == "href" and (value is None or not self._safe_url(value)):
+                raise ValueError("Unsafe link URL")
+            if value is not None:
+                rendered.append(f' {name}="{html.escape(value, quote=True)}"')
+        self.output.append(f"<{tag}{''.join(rendered)}>")
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+        if tag.casefold() != "br":
+            self.output.append(f"</{tag.casefold()}>")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.casefold() in _SAFE_OWNER_TAGS and tag.casefold() not in {"br"}:
+            self.output.append(f"</{tag.casefold()}>")
+
+    def handle_data(self, data: str) -> None:
+        self.output.append(html.escape(data))
 
 
 def _validate_owner_html(content: str) -> str:
-    """Reject executable owner HTML before it reaches a trusted rendered section."""
-    folded = content.casefold()
-    if any(marker in folded for marker in _DISALLOWED_OWNER_HTML) or " onerror=" in folded or " onload=" in folded:
-        raise HTTPException(status_code=422, detail="Executable HTML is not allowed in proposal sections")
-    return content
+    """Validate and normalize safe formatting before it reaches proposal HTML."""
+    parser = _SafeHTMLParser()
+    try:
+        parser.feed(content)
+        parser.close()
+    except (ValueError, AssertionError) as exc:
+        raise HTTPException(status_code=422, detail="Unsafe HTML is not allowed in proposal sections") from exc
+    return "".join(parser.output)
 
 
 def _serializer() -> URLSafeTimedSerializer:
@@ -160,9 +209,34 @@ async def edit_proposal(proposal_id: UUID, body: EditRequest, owner: str = Depen
     proposal = await _get_proposal(session, proposal_id)
     if proposal.status not in {ProposalStatus.DRAFT, ProposalStatus.APPROVED}:
         raise HTTPException(status_code=409, detail="Sent proposals cannot be edited")
-    proposal = await ProposalGenerator().regenerate_section(
-        session, proposal, body.section, _validate_owner_html(body.content)
-    )
+    if body.discount_pct is not None:
+        if body.section != ComponentBlock.PRICING:
+            raise HTTPException(status_code=422, detail="Discount updates are limited to pricing")
+        limits = (proposal.pricing or {}).get("negotiation_limits", {})
+        max_discount = float(limits.get("max_discount_pct", proposal.pricing.get("max_discount_pct", 0)))
+        if body.discount_pct > max_discount:
+            raise HTTPException(status_code=422, detail="Discount exceeds the approved negotiation limit")
+        recommended = float(proposal.pricing.get("recommended_price", proposal.proposed_price))
+        final_price = round(recommended * (1 - body.discount_pct / 100), 2)
+        proposal.pricing = {**proposal.pricing, "discount_pct": body.discount_pct, "final_price": final_price}
+        proposal.current_offered_price = final_price
+        proposal.final_price = final_price
+    if body.content is not None:
+        proposal = await ProposalGenerator().regenerate_section(
+            session, proposal, body.section, _validate_owner_html(body.content)
+        )
+    elif body.discount_pct is None:
+        raise HTTPException(status_code=422, detail="Content or a pricing discount is required")
+    if body.discount_pct is not None:
+        await AuditService.record(
+            session,
+            actor=owner,
+            action="proposal.pricing_edit",
+            entity_type="proposal",
+            entity_id=str(proposal.id),
+            correlation_id=str(proposal.id),
+            payload={"version": proposal.version, "discount_pct": body.discount_pct},
+        )
     await session.commit()
     return _proposal_dict(proposal)
 
@@ -195,20 +269,20 @@ async def send_proposal(proposal_id: UUID, owner: str = Depends(get_current_owne
     token = _serializer().dumps({"proposal_id": str(proposal.id), "nonce": nonce})
     proposal.client_access_token_hash = hashlib.sha256(token.encode()).hexdigest()
     proposal.client_access_token_expires_at = proposal.expires_at or datetime.now(UTC) + timedelta(days=14)
-    proposal.status = ProposalStatus.SENT
-    proposal.sent_at = datetime.now(UTC)
-    business.status = BusinessStatus.NEGOTIATING
+    proposal.status = ProposalStatus.DELIVERY_QUEUED
     client_path = f"/client/proposals/{proposal.id}?token={token}"
     session.add(OutboxEvent(topic="proposal.deliver", payload={"proposal_id": str(proposal.id), "recipient": business.email, "client_path": client_path, "formats": ["html", "pdf"]}))
     await AuditService.record(session, actor=owner, action="proposal.delivery_queued", entity_type="proposal", entity_id=str(proposal.id), correlation_id=str(proposal.id), payload={"version": proposal.version, "channel": "durable_outbox"})
     await session.commit()
-    return {"id": str(proposal.id), "status": "delivery_queued", "client_path": client_path}
+    return {"id": str(proposal.id), "status": ProposalStatus.DELIVERY_QUEUED.value, "client_path": client_path}
 
 
 @router.get("/client/proposals/{proposal_id}", response_class=HTMLResponse)
 async def client_proposal(proposal_id: UUID, token: str, session: AsyncSession = Depends(get_db)) -> HTMLResponse:
     """Validate signed, expiring client access and record the first view."""
     proposal = await _get_proposal(session, proposal_id)
+    if proposal.status != ProposalStatus.SENT:
+        raise HTTPException(status_code=403, detail="Proposal is not available to the client")
     try:
         payload = _serializer().loads(token, max_age=60 * 60 * 24 * 14)
     except (BadSignature, SignatureExpired) as exc:

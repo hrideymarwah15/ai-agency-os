@@ -63,6 +63,7 @@ class BusinessStatus(str, enum.Enum):
 class ProposalStatus(str, enum.Enum):
     DRAFT = "DRAFT"
     APPROVED = "APPROVED"
+    DELIVERY_QUEUED = "DELIVERY_QUEUED"
     SENT = "SENT"
     UNDER_NEGOTIATION = "UNDER_NEGOTIATION"
     ACCEPTED = "ACCEPTED"
